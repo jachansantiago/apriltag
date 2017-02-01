@@ -5,6 +5,7 @@
 #include "tag25h9.h"
 #include "tag25h7.h"
 #include "tag16h5.h"
+#include <stdio.h>
 
 typedef struct apriltag_family* (*factory_func_t)();
 
@@ -40,8 +41,14 @@ zarray_t* apriltag_family_list() {
 apriltag_family_t* apriltag_family_create(const char* famname) {
 
   int i;
+  
+  //printf("apriltag_family_create('d%d d%d d%d')\n",famname[0],famname[1],famname[2]);
+  //printf("apriltag_family_create('%s')\n",famname);
 
   for (i=0; lookup[i].name; ++i) {
+  
+    //printf("   comparing to '%s'\n",lookup[i].name);
+  
     if (!strcmp(famname, lookup[i].name)) {
       return lookup[i].ctor();
     }

@@ -71,8 +71,34 @@ class _ApriltagDetection(ctypes.Structure):
         ('p', (ctypes.c_double*2)*4)
     ]
 
+      
+class _ApriltagQuadThreshParams(ctypes.Structure):
+    '''Wraps apriltag_quad_thresh_params C struct.'''
+    _fields_ = [
+        ('dummy', ctypes.c_int)
+    ]
+      
+class _ApriltagQuadContourParams(ctypes.Structure):
+    '''Wraps apriltag_quad_contour_params C struct.'''
+    _fields_ = [
+        ('threshold_neighborhood_size', ctypes.c_int),
+        ('threshold_value', ctypes.c_int),
+        ('min_side_length', ctypes.c_int),
+        ('min_aspect', ctypes.c_float),
+        ('point_dist_diam_scl', ctypes.c_float),
+        ('point_dist_bias', ctypes.c_float),
+        ('contour_margin', ctypes.c_double),
+        ('corner_skip_scl', ctypes.c_float),
+        ('corner_skip_bias', ctypes.c_float)
+    ]
+
+class _ApriltagUnionQuadParams(ctypes.Union):
+    _fields_ = [('qtp', _ApriltagQuadThreshParams),
+                ('qcp', _ApriltagQuadContourParams)]
+
 class _ApriltagDetector(ctypes.Structure):
     '''Wraps apriltag_detector C struct.'''
+    _anonymous_ = ('u',)
     _fields_ = [
         ('nthreads', ctypes.c_int),
         ('quad_decimate', ctypes.c_float),
@@ -82,6 +108,7 @@ class _ApriltagDetector(ctypes.Structure):
         ('refine_pose', ctypes.c_int),
         ('debug', ctypes.c_int),
         ('quad_contours', ctypes.c_int),
+        ('u', _ApriltagUnionQuadParams)
     ]
 
 ######################################################################
@@ -298,6 +325,7 @@ add_arguments; or an instance of the DetectorOptions class.'''
             ptr = ctypes.c_char_p()
             self.libc.zarray_get(flist, i, ctypes.byref(ptr))
             self.families.append(ctypes.string_at(ptr))
+            #print(ptr.value.decode("utf-8"))
 
         if options.families == 'all':
             families_list = self.families
@@ -305,6 +333,8 @@ add_arguments; or an instance of the DetectorOptions class.'''
             families_list = options.families
         else:
             families_list = [n for n in re.split(r'\W+', options.families) if n]
+
+        #print("##"+repr(families_list))
 
         # add tags
         for family in families_list:
@@ -365,13 +395,14 @@ image of type numpy.uint8.'''
 
         '''Add a single tag family to this detector.'''
 
-        family = self.libc.apriltag_family_create(name)
+        #print('Adding family "{}"'.format(name))
+        family = self.libc.apriltag_family_create(name.encode())
 
         if family:
             family.contents.border = self.options.border
             self.libc.apriltag_detector_add_family(self.tag_detector, family)
         else:
-            print 'Unrecognized tag family name. Try e.g. tag36h11'
+            print('Unrecognized tag family name. Try e.g. tag36h11')
 
     def _vis_detections(self, shape, detections):
 
@@ -440,12 +471,14 @@ def main():
     for filename in options.filenames:
 
         if have_cv2:
+            print('Using cv2 to read/write/display images')
             orig = cv2.imread(filename)
             if len(orig.shape) == 3:
                 gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
             else:
                 gray = orig
         else:
+            print('Using PIL to read/write images')
             pil_image = Image.open(filename)
             orig = numpy.array(pil_image)
             gray = numpy.array(pil_image.convert('L'))
@@ -453,13 +486,13 @@ def main():
         detections, dimg = det.detect(gray, return_image=True)
 
         num_detections = len(detections)
-        print 'Detected {} tags.\n'.format(num_detections)
+        print('Detected {} tags.\n'.format(num_detections))
 
         for i, detection in enumerate(detections):
-            print 'Detection {} of {}:'.format(i+1, num_detections)
-            print
-            print detection.tostring(indent=2)
-            print
+            print('Detection {} of {}:'.format(i+1, num_detections))
+            print()
+            print(detection.tostring(indent=2))
+            print()
 
         if len(orig.shape) == 3:
             overlay = orig / 2 + dimg[:, :, None] / 2
@@ -467,11 +500,11 @@ def main():
             overlay = gray / 2 + dimg / 2
 
         if have_cv2:
-            cv2.imshow('win', overlay)
+            cv2.imshow('win', numpy.uint8(overlay))
             while cv2.waitKey(5) < 0:
                 pass
         else:
-            output = Image.fromarray(overlay)
+            output = Image.fromarray(numpy.uint8(overlay))
             output.save('detections.png')
 
 if __name__ == '__main__':
