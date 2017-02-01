@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
     getopt_add_bool(getopt, 'c', "contours", 0, "Use new contour-based quad detection");
     getopt_add_bool(getopt, 'n', "no-gui", 0, "Suppress GUI output from OpenCV");
     getopt_add_bool(getopt, 'B', "benchmark", 0, "Benchmark mode (assumes -n)");
+    getopt_add_bool(getopt, 'I', "invert", 0, "Process inverted image");
 
     if (!getopt_parse(getopt, argc, argv, 1) || getopt_get_bool(getopt, "help")) {
         printf("Usage: %s [options] <input files>\n", argv[0]);
@@ -95,6 +96,8 @@ int main(int argc, char *argv[])
     td->refine_edges = getopt_get_bool(getopt, "refine-edges");
     td->refine_decode = getopt_get_bool(getopt, "refine-decode");
     td->refine_pose = getopt_get_bool(getopt, "refine-pose");
+    
+    int invert = getopt_get_bool(getopt, "invert");
 
     int quiet = getopt_get_bool(getopt, "quiet");
 
@@ -144,6 +147,9 @@ int main(int argc, char *argv[])
         } else {
           orig.copyTo(gray);
         }
+        if (invert) {
+            gray = cv::Scalar::all(255) - gray;
+        }
 
         image_u8_t* im8 = cv2im8_copy(gray);
 
@@ -174,6 +180,16 @@ int main(int argc, char *argv[])
                    "goodness %8.3f, margin %8.3f\n",
                    i, det->family->d*det->family->d, det->family->h,
                    det->id, det->hamming, det->goodness, det->decision_margin);
+            printf("               center (%4.2f,%4.2f)\n               corners=[(%4.2f,%4.2f),(%4.2f,%4.2f),(%4.2f,%4.2f),(%4.2f,%4.2f)]\n",
+                   det->c[0],det->c[1],  
+                   det->p[0][0],det->p[0][1],
+                   det->p[1][0],det->p[1][1],
+                   det->p[2][0],det->p[2][1],
+                   det->p[3][0],det->p[3][1]);
+            printf("               homography:\n[%10.3f,%10.3f,%10.3f]\n[%10.3f,%10.3f,%10.3f]\n[%10.6f,%10.6f,%10.6f]\n",
+                   det->H->data[0],det->H->data[1],det->H->data[2],
+                   det->H->data[3],det->H->data[4],det->H->data[5],
+                   det->H->data[6],det->H->data[7],det->H->data[8]);
           }
 
           hamm_hist[det->hamming]++;
@@ -190,20 +206,16 @@ int main(int argc, char *argv[])
                    td->nedges, td->nsegments, td->nquads);
           }
 
-          if (!quiet)
+          if (!quiet) {
             printf("Hamming histogram: ");
 
-          for (int i = 0; i < hamm_hist_max; i++)
-            printf("%5d", hamm_hist[i]);
-
-          if (quiet) {
-            printf("%12.3f", timeprofile_total_utime(td->tp) / 1.0E3);
+            for (int i = 0; i < hamm_hist_max; i++)
+              printf("%5d", hamm_hist[i]);
+            printf("\n");
           }
-        
-
+          
+          printf("%12.3f ms\n", timeprofile_total_utime(td->tp) / 1.0E3);
         }
-      
-        printf("\n");
 
         if (!nogui) {
           display = 0.5*display + 0.5*orig;

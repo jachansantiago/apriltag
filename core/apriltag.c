@@ -86,7 +86,7 @@ static uint64_t rotate90(uint64_t w, uint32_t d)
     uint64_t wr = 0;
 
     for (int32_t r = d-1; r >=0; r--) {
-        for (int32_t c = 0; c < d; c++) {
+        for (uint32_t c = 0; c < d; c++) {
             int32_t b = r + d*c;
 
             wr = wr << 1;
@@ -177,7 +177,7 @@ void quick_decode_init(apriltag_family_t *family, int maxhamming)
     for (int i = 0; i < qd->nentries; i++)
         qd->entries[i].rcode = UINT64_MAX;
 
-    for (int i = 0; i < family->ncodes; i++) {
+    for (uint32_t i = 0; i < family->ncodes; i++) {
         uint64_t code = family->codes[i];
 
         // add exact code (hamming = 0)
@@ -599,12 +599,12 @@ float quad_decode(apriltag_family_t *family, image_u8_t *im, struct quad *quad, 
     float sums[2] = { 0, 0 };
     float counts[2] = { 0, 0 };
 
-    for (int pattern_idx = 0; pattern_idx < sizeof(patterns)/(5*sizeof(float)); pattern_idx ++) {
+    for (uint32_t pattern_idx = 0; pattern_idx < sizeof(patterns)/(5*sizeof(float)); pattern_idx ++) {
         float *pattern = &patterns[pattern_idx * 5];
 
         int sumidx = pattern[4];
 
-        for (int i = 0; i < 2*family->black_border + family->d; i++) {
+        for (uint32_t i = 0; i < 2*family->black_border + family->d; i++) {
             double tagx01 = (pattern[0] + i*pattern[2]) / (2*family->black_border + family->d);
             double tagy01 = (pattern[1] + i*pattern[3]) / (2*family->black_border + family->d);
 
@@ -634,7 +634,7 @@ float quad_decode(apriltag_family_t *family, image_u8_t *im, struct quad *quad, 
     float score = 0;
     float score_count = 0;
 
-    for (int bitidx = 0; bitidx < family->d * family->d; bitidx++) {
+    for (unsigned int bitidx = 0; bitidx < family->d * family->d; bitidx++) {
         int bitx = bitidx % family->d;
         int bity = bitidx / family->d;
 
@@ -670,6 +670,19 @@ float quad_decode(apriltag_family_t *family, image_u8_t *im, struct quad *quad, 
     }
 
     quick_decode_codeword(family, rcode, entry);
+    
+    /*
+    char s[100];
+    int ii=0;
+    for (ii=0; ii<family->d * family->d; ii++) {
+       s[ii]='0'+((rcode>>ii)&1);
+    }
+    s[ii]='\0';
+    printf("X = %.4d, Y = %.4d, Code = %.9lx\n",(int)quad->p[0][0],(int)quad->p[0][1],rcode);
+    
+    printf("Id = %d, Hamming = %d, Rotation = %d Code='%s'\n",entry->id,entry->hamming,entry->rotation, s);
+    */
+    
     return score / score_count;
 }
 
@@ -997,6 +1010,52 @@ static void quad_decode_task(void *_u)
                 pthread_mutex_lock(&td->mutex);
                 zarray_add(task->detections, &det);
                 pthread_mutex_unlock(&td->mutex);
+            } else {
+                // HACK: keep all quads
+                
+#ifdef KEEP_ALL_QUADS
+                apriltag_detection_t *det = calloc(1, sizeof(apriltag_detection_t));
+
+                det->family = family;
+                det->id = -1;
+                det->hamming = 255;
+                det->goodness = goodness;
+                det->decision_margin = decision_margin;
+
+                double theta = 0;
+                double c = cos(theta), s = sin(theta);
+
+                matd_t *R = matd_create(3,3);
+                MATD_EL(R, 0, 0) = c;
+                MATD_EL(R, 0, 1) = -s;
+                MATD_EL(R, 1, 0) = s;
+                MATD_EL(R, 1, 1) = c;
+                MATD_EL(R, 2, 2) = 1;
+
+                det->H = matd_op("M*M", quad->H, R);
+
+                matd_destroy(R);
+
+                homography_project(det->H, 0, 0, &det->c[0], &det->c[1]);
+
+                // adjust the points in det->p so that they correspond to
+                // counter-clockwise around the quad, starting at -1,-1.
+                for (int i = 0; i < 4; i++) {
+                    int tcx = (i == 0 || i == 3) ? -1 : 1;
+                    int tcy = (i < 2) ? -1 : 1;
+
+                    double p[2];
+
+                    homography_project(det->H, tcx, tcy, &p[0], &p[1]);
+
+                    det->p[i][0] = p[0];
+                    det->p[i][1] = p[1];
+                }
+
+                pthread_mutex_lock(&td->mutex);
+                zarray_add(task->detections, &det);
+                pthread_mutex_unlock(&td->mutex);
+#endif
             }
 
             quad_destroy(quad);
@@ -1204,7 +1263,6 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
             image_u8_draw_line(im_quads, quad->p[1][0], quad->p[1][1], quad->p[2][0], quad->p[2][1], color, 1);
             image_u8_draw_line(im_quads, quad->p[2][0], quad->p[2][1], quad->p[3][0], quad->p[3][1], color, 1);
             image_u8_draw_line(im_quads, quad->p[3][0], quad->p[3][1], quad->p[0][0], quad->p[0][1], color, 1);
-
         }
 
         image_u8_write_pnm(im_quads, "debug_quads_fixed.pnm");
