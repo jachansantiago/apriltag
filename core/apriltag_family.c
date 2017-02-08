@@ -5,6 +5,7 @@
 #include "tag25h9.h"
 #include "tag25h7.h"
 #include "tag16h5.h"
+#include "tagbeetag.h"
 #include <stdio.h>
 
 typedef struct apriltag_family* (*factory_func_t)();
@@ -21,6 +22,7 @@ static const struct apriltag_family_info lookup[] = {
   { "tag25h9", tag25h9_create },
   { "tag25h7", tag25h7_create },
   { "tag16h5", tag16h5_create },
+  { "tagbeetag", tagbeetag_create },
   { NULL, NULL }
 };
 
