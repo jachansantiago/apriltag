@@ -1010,10 +1010,13 @@ static void quad_decode_task(void *_u)
                 pthread_mutex_lock(&td->mutex);
                 zarray_add(task->detections, &det);
                 pthread_mutex_unlock(&td->mutex);
-            } else {
+                
+                //printf("DEBUG: debug = %d\n",td->debug);
+            } else if (td->debug & (1<<8)) {
                 // HACK: keep all quads
                 
-#ifdef KEEP_ALL_QUADS
+                printf("DEBUG: debug bit 8 ON, keep all quads\n");
+                
                 apriltag_detection_t *det = calloc(1, sizeof(apriltag_detection_t));
 
                 det->family = family;
@@ -1055,7 +1058,6 @@ static void quad_decode_task(void *_u)
                 pthread_mutex_lock(&td->mutex);
                 zarray_add(task->detections, &det);
                 pthread_mutex_unlock(&td->mutex);
-#endif
             }
 
             quad_destroy(quad);

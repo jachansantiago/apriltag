@@ -198,7 +198,7 @@ argparse.ArgumentParser on which you have called add_arguments.
                  refine_edges=True,
                  refine_decode=False,
                  refine_pose=False,
-                 debug=False,
+                 debug=0,
                  quad_contours=True):
 
         self.families = families
@@ -263,6 +263,9 @@ Detector.
     parser.add_argument('-c', dest='quad_contours', default=False,
                         action='store_true',
                         help='Use new contour-based quad detection')
+                        
+    parser.add_argument('-D', dest='debug', type=int, default=defaults.debug,
+                        help='define debug flags')
 
 
 ######################################################################
@@ -313,6 +316,8 @@ add_arguments; or an instance of the DetectorOptions class.'''
         self.tag_detector.refine_edges = int(options.refine_edges)
         self.tag_detector.refine_decode = int(options.refine_decode)
         self.tag_detector.refine_pose = int(options.refine_pose)
+        self.tag_detector.debug = int(options.debug)
+        print(self.tag_detector.debug)
 
         if options.quad_contours:
             self.libc.apriltag_detector_enable_quad_contours(self.tag_detector, 1)
