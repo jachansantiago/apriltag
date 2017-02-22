@@ -13,6 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
+import os
+import math
+
 plt.style.use('seaborn-paper')
 
 
@@ -43,8 +46,8 @@ def init_detection(config='tag36h10'):
     options.min_side_length = 15
     options.min_aspect = 0.7
     
-    det.tag_detector.contents.qcp.min_side_length = options.min_side_length;
-    det.tag_detector.contents.qcp.min_aspect = options.min_aspect;
+    #det.tag_detector.contents.qcp.min_side_length = options.min_side_length;
+    #det.tag_detector.contents.qcp.min_aspect = options.min_aspect;
     
     return det
 
@@ -120,9 +123,9 @@ def plot_detections(detections, ax, orig):
     #plt.draw()
     
     for D in detections:
-        print(repr(D))
+        #print(repr(D))
         c=D.corners
-        print(c[:,1])
+        #print(c[:,1])
         pp,=plt.plot(c[:,0],c[:,1],'-')
         plt.plot(c[:,0],c[:,1],'o',markeredgecolor=pp.get_color(), markerfacecolor="None")
         plt.text(np.mean(c[:,0]),np.min(c[:,1])-5,str(D.tag_id),fontsize=12,horizontalalignment='center', verticalalignment='bottom', color=pp.get_color())
@@ -147,7 +150,7 @@ def show_detect(det, orig):
     
     #toJSON(detections)
 
-    print_detections(detections)
+    #print_detections(detections)
 
     plot_detections(detections, gax[0], orig)
     
@@ -215,7 +218,7 @@ def draw_detect(det, orig, draw_sampling=0,
 
     detections = do_detect(det, orig)
 
-    print_detections(detections, show_details=False)
+    #print_detections(detections, show_details=False)
 
     tagimg = orig.copy()
     
@@ -260,6 +263,10 @@ def main():
                         default=0.7, type=float,
                         help='Tags smaller than that are discarded '+ show_default)
                         
+    parser.add_argument('-nowait', dest='nowait', default=False, 
+                        action='store_true',
+                        help='Process all input without waiting for user')
+                        
     apriltag.add_arguments(parser)
 
     options = parser.parse_args()
@@ -272,8 +279,25 @@ def main():
     det = apriltag.Detector(options)
     
     # For Quad Contour Params Detection (QCP)
-    det.tag_detector.contents.qcp.min_side_length = options.min_side_length;
-    det.tag_detector.contents.qcp.min_aspect = options.min_aspect;
+    #det.tag_detector.contents.qcp.min_side_length = options.min_side_length;
+    #det.tag_detector.contents.qcp.min_aspect = options.min_aspect;
+    
+# Defaults for Quad Threshold Approach
+#     qtp->max_nmaxima = 10;
+#     qtp->min_cluster_pixels = 5;
+#     qtp->max_line_fit_mse = 1.0;
+#     qtp->critical_rad = 10 * M_PI / 180;
+#     qtp->deglitch = 0;
+#     qtp->min_white_black_diff = 15;
+    
+    qtp = det.tag_detector.contents.qtp
+    qtp.min_cluster_pixels = 200
+    qtp.critical_rad = 50.0 / 180 * math.pi
+    qtp.min_white_black_diff = 30
+    qtp.deglitch = 0
+
+#         ('max_nmaxima', ctypes.c_int),
+#        ('max_line_fit_mse', ctypes.c_float),
     
     init_gui()
 
@@ -285,6 +309,8 @@ def main():
         options.f1=int(min(options.f1,nframes))
         
         win = cv2.namedWindow('tags',cv2.WINDOW_NORMAL)
+        
+        os.makedirs('tagout',exist_ok=True)
         
         for f in range(options.f0,options.f1+1):
         
@@ -300,7 +326,7 @@ def main():
             print("Detecting on frame {}, saving to {}".format(f,filename))
             
             detections = do_detect(det, orig)
-            
+
             plot_detections(detections, gax[0], orig)
             
             tagimg = orig.copy()
@@ -308,9 +334,12 @@ def main():
             #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
             cv2.imwrite(filename,tagimg)
             
+            #print_detections(detections, show_details=False)
+            
+            plt.draw()
             plt.show(block=False)
             
-            _ = input("Stopped at frame {}. Press Enter to continue".format(f))
+            #_ = input("Stopped at frame {}. Press Enter to continue".format(f))
     else: # Input is an image (or several)
         print('Processing image(s) {}'.format(options.filenames))
         for filename in options.filenames:

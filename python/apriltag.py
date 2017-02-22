@@ -75,7 +75,12 @@ class _ApriltagDetection(ctypes.Structure):
 class _ApriltagQuadThreshParams(ctypes.Structure):
     '''Wraps apriltag_quad_thresh_params C struct.'''
     _fields_ = [
-        ('dummy', ctypes.c_int)
+        ('min_cluster_pixels', ctypes.c_int),
+        ('max_nmaxima', ctypes.c_int),
+        ('critical_rad', ctypes.c_float),
+        ('max_line_fit_mse', ctypes.c_float),
+        ('min_white_black_diff', ctypes.c_int),
+        ('deglitch', ctypes.c_int)
     ]
       
 class _ApriltagQuadContourParams(ctypes.Structure):
@@ -202,7 +207,7 @@ argparse.ArgumentParser on which you have called add_arguments.
                  refine_edges=True,
                  refine_decode=False,
                  refine_pose=False,
-                 debug=0,
+                 debug=-1,
                  quad_contours=True,
                  inverse=False):
 
@@ -323,12 +328,12 @@ add_arguments; or an instance of the DetectorOptions class.'''
         self.tag_detector.contents.nthreads = int(options.nthreads)
         self.tag_detector.contents.quad_decimate = float(options.quad_decimate)
         self.tag_detector.contents.quad_sigma = float(options.quad_sigma)
-        self.tag_detector.refine_edges = int(options.refine_edges)
-        self.tag_detector.refine_decode = int(options.refine_decode)
-        self.tag_detector.refine_pose = int(options.refine_pose)
-        self.tag_detector.debug = int(options.debug)
+        self.tag_detector.contents.refine_edges = int(options.refine_edges)
+        self.tag_detector.contents.refine_decode = int(options.refine_decode)
+        self.tag_detector.contents.refine_pose = int(options.refine_pose)
+        self.tag_detector.contents.debug = int(options.debug)
         print("In Detector.__init__")
-        print(self.tag_detector.debug)
+        print(self.tag_detector.contents.debug)
 
         if options.quad_contours:
             self.libc.apriltag_detector_enable_quad_contours(self.tag_detector, 1)

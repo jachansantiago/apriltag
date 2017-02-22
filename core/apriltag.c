@@ -1011,7 +1011,7 @@ static void quad_decode_task(void *_u)
                 zarray_add(task->detections, &det);
                 pthread_mutex_unlock(&td->mutex);
                 
-                printf("DEBUG: debug = %d\n",td->debug);
+                //printf("DEBUG: debug = %d\n",td->debug);
             } else if (td->debug & (1<<8)) {
                 // HACK: keep all quads
                 
@@ -1076,6 +1076,18 @@ void apriltag_detection_destroy(apriltag_detection_t *det)
 
 zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
 {
+    if (td->debug) {
+        printf("apriltag_detector_detect:\n");
+        printf("  nthreads = %d\n",td->nthreads);
+        printf("  quad_decimate = %f\n",td->quad_decimate);
+        printf("  quad_sigma = %f\n",td->quad_sigma);
+        printf("  refine_edges = %d\n",td->refine_edges);
+        printf("  refine_decode = %d\n",td->refine_decode);
+        printf("  refine_pose = %d\n",td->refine_pose);
+        printf("  debug = %d\n",td->debug);
+        printf("  quad_contours = %d\n",td->quad_contours);
+    }
+
     if (zarray_size(td->tag_families) == 0) {
         zarray_t *s = zarray_create(sizeof(apriltag_detection_t*));
         printf("apriltag.c: No tag families enabled.");
