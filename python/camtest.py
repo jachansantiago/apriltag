@@ -43,13 +43,13 @@ def main():
         detections, dimg = detector.detect(gray, return_image=True)
 
         num_detections = len(detections)
-        print 'Detected {} tags.\n'.format(num_detections)
+        print('Detected {} tags.\n'.format(num_detections))
 
         for i, detection in enumerate(detections):
-            print 'Detection {} of {}:'.format(i+1, num_detections)
-            print
-            print detection.tostring(indent=2)
-            print
+            print('Detection {} of {}:'.format(i+1, num_detections))
+            print()
+            print(detection.tostring(indent=2))
+            print()
 
         overlay = frame / 2 + dimg[:, :, None] / 2
 

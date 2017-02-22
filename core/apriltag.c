@@ -1011,7 +1011,7 @@ static void quad_decode_task(void *_u)
                 zarray_add(task->detections, &det);
                 pthread_mutex_unlock(&td->mutex);
                 
-                //printf("DEBUG: debug = %d\n",td->debug);
+                printf("DEBUG: debug = %d\n",td->debug);
             } else if (td->debug & (1<<8)) {
                 // HACK: keep all quads
                 

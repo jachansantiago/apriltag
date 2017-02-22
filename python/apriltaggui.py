@@ -1,6 +1,13 @@
+#!/usr/bin/env python
+
+"""Additional wrappers around apriltag to interact with OpenCV and matplotlib.
+
+Author: Rémi Mégret, 2017
+"""
+
 
 import apriltag
-from apriltag import *
+#from apriltag import *
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,15 +23,40 @@ have_cv2 = True
 
 gax = [None, None]
 
-def init_detect(familyname='tag36h10'):
-    import argparse
+import argparse
 
-    options = argparse.Namespace(border=2, families='[{}]'.format(familyname), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1)
+def init_detection(config='tag36h10'):
 
-    print("init_detect({})",familyname)
-    det = Detector(options)
+    presets = {
+        'tag36h10': argparse.Namespace(
+            border=2, families='[{}]'.format('tag36h10'), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=False),
+        'tagbeetag': argparse.Namespace(
+            border=2, families='[{}]'.format('tagbeetag'), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=True)
+    }
+    
+    options = presets[config]
+        
+    print("init_detection({})",config)
+    print("Options=",options)
+    det = apriltag.Detector(options)
+    
+    options.min_side_length = 15
+    options.min_aspect = 0.7
+    
+    det.tag_detector.contents.qcp.min_side_length = options.min_side_length;
+    det.tag_detector.contents.qcp.min_aspect = options.min_aspect;
     
     return det
+
+# def init_detect(familyname='tag36h10'):
+# 
+#     options = argparse.Namespace(border=2, families='[{}]'.format(familyname), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=False)
+# 
+#     print("init_detect({})",familyname)
+#     det = apriltag.Detector(options)
+#     
+#     return det
+    
 def init_gui():
     gax[1] = plt.figure(1,figsize=(12, 8))
     plt.figure(1)
@@ -44,48 +76,48 @@ def toJSON(detections):
            }
     
     print(json.dumps(data));
-#                 tag.family.contents.name,
-#                 tag.id,
-#                 tag.hamming,
-#                 tag.goodness,
-#                 tag.decision_margin,
-#                 homography,
-#                 center,
-#                 corners
 
 from timeit import default_timer as timer
 
-def show_detect(det, orig, invert=0):
-
+def do_detect(det, orig):
     if len(orig.shape) == 3:
         gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
     else:
         gray = orig
-    if (invert):
-        gray = 255-gray
+    # Inversion done directly in Detector now
+    #if (invert):
+    #    gray = 255-gray
 
     start = timer()
-    #for _ in range(100):
-    detections, dimg = det.detect(gray, return_image=True)
+    detections = det.detect(gray, return_image=False)
     end = timer()
-    print("Time = ",end - start) 
+    #print("Time = ",end - start) 
     
-    #toJSON(detections)
+    return detections
 
+def print_detections(detections, show_details=False):
     num_detections = len(detections)
     print('Detected {} tags.\n'.format(num_detections))
 
-    for i, detection in enumerate(detections):
-        print('Detection {} of {}:'.format(i+1, num_detections))
-        print()
-        print(detection.tostring(indent=2))
-        print()
+    if (show_details):
+        for i, detection in enumerate(detections):
+            print('Detection {} of {}:'.format(i+1, num_detections))
+            print()
+            print(detection.tostring(indent=2))
+            print()    
 
-    plt.sca(gax[0])
+def plot_detections(detections, ax, orig):
+    """Plots apriltag detections on matplotlib axis"""
+
+    plt.sca(ax)
     plt.cla()
     plt.gray()
-    plt.imshow(cv2.cvtColor(orig, cv2.COLOR_BGR2RGB))
-    plt.draw()
+    if len(orig.shape) == 3:
+        bgimg = cv2.cvtColor(orig, cv2.COLOR_BGR2RGB)
+    else:
+        bgimg = orig.copy()
+    plt.imshow(bgimg)
+    #plt.draw()
     
     for D in detections:
         print(repr(D))
@@ -105,6 +137,19 @@ def show_detect(det, orig, invert=0):
     plt.draw()
     
     plt.show(block=False)
+
+
+# obsolete
+def show_detect(det, orig):
+    """Warning: obsolete show_detect"""
+
+    detections = do_detect(det, orig)
+    
+    #toJSON(detections)
+
+    print_detections(detections)
+
+    plot_detections(detections, gax[0], orig)
     
     
 def tagradius(D):
@@ -112,7 +157,8 @@ def tagradius(D):
     y=[D.corners[i,1] for i in range(4)]
     return max([max(x)-min(x), max(y)-min(y)])
     
-def draw_detections(tagimg, detections, draw_sampling=0, textthickness=2, fontscale=1.0):
+def draw_detections(tagimg, detections, draw_sampling=0, 
+                    textthickness=2, fontscale=1.0):
     
     for D in detections:
         #print(repr(D))
@@ -164,29 +210,17 @@ def draw_detections(tagimg, detections, draw_sampling=0, textthickness=2, fontsc
                 x2=int(x2); y2=int(y2);                x1=int(x1); y1=int(y1);
                 cv2.line(tagimg, (x1,y1), (x2,y2), (0,255,0),1)
     
-def draw_detect(det, orig, invert=0, draw_sampling=0, thickness=3, fontscale=1.0): # => tagimg
+def draw_detect(det, orig, draw_sampling=0, 
+                thickness=3, fontscale=1.0): # => tagimg
 
-    if len(orig.shape) == 3:
-        gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = orig
-    if (invert):
-        gray = 255-gray
+    detections = do_detect(det, orig)
 
-    detections = det.detect(gray, return_image=False)
-
-    num_detections = len(detections)
-    print('Detected {} tags.\n'.format(num_detections))
-
-#     for i, detection in enumerate(detections):
-#         print('Detection {} of {}:'.format(i+1, num_detections))
-#         print()
-#         print(detection.tostring(indent=2))
-#         print()
+    print_detections(detections, show_details=False)
 
     tagimg = orig.copy()
     
-    draw_detections(tagimg, detections, draw_sampling, textthickness=thickness, fontscale=fontscale)
+    draw_detections(tagimg, detections, draw_sampling, 
+                    textthickness=thickness, fontscale=fontscale)
             
     return tagimg
 
@@ -206,6 +240,8 @@ def main():
 
     parser = ArgumentParser(
         description='test apriltag Python bindings')
+        
+    show_default = ' (default %(default)s)'
 
     parser.add_argument('filenames', metavar='IMAGE', nargs='*',
                         help='files to convert')
@@ -213,27 +249,33 @@ def main():
     parser.add_argument('-V', dest='video_in', default=None,
                         help='Input video')
     parser.add_argument('-f0', dest='f0', default=0, type=int,
-                        help='Frame start')
+                        help='Frame start '+ show_default)
     parser.add_argument('-f1', dest='f1', default=0, type=int,
-                        help='Frame end')
-    parser.add_argument('-I', dest='inverse', default=False, 
-                        action='store_true',
-                        help='Process inverse image')
+                        help='Frame end '+ show_default)
+                        
+    parser.add_argument('-min_side_length', dest='min_side_length', default=25, 
+                        type=int,
+                        help='Tags smaller than that are discarded '+ show_default)
+    parser.add_argument('-min_aspect', dest='min_aspect',
+                        default=0.7, type=float,
+                        help='Tags smaller than that are discarded '+ show_default)
                         
     apriltag.add_arguments(parser)
 
     options = parser.parse_args()
     
+    if (options.f1<options.f0):
+        options.f1=options.f0
+    
     print(options)
     
-    #det = init_detect(options)
     det = apriltag.Detector(options)
     
-    #det.tag_detector.contents.qcp.min_side_length = 25;
-    #det.tag_detector.contents.qcp.min_aspect_ratio = 0.7;
-    #x = det.tag_detector.tata
+    # For Quad Contour Params Detection (QCP)
+    det.tag_detector.contents.qcp.min_side_length = options.min_side_length;
+    det.tag_detector.contents.qcp.min_aspect = options.min_aspect;
     
-    print(options)
+    init_gui()
 
     if (options.video_in): # Input is a video
         print('Processing video {}'.format(options.video_in))
@@ -251,75 +293,45 @@ def main():
             fps=22
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
             status,orig = vidcap.read();
+            # Caution: orig in BGR format by default
             if (orig is None):
                 print('Warning: could not read frame {}'.format(f))
                 continue
             print("Detecting on frame {}, saving to {}".format(f,filename))
-            #orig = cv2.cvtColor(orig, cv2.COLOR_BGR2RGB);
-            gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
-            if (options.inverse):
-                gray = 255-gray
             
-            tagimg = draw_detect(det, orig, draw_sampling=0)
+            detections = do_detect(det, orig)
+            
+            plot_detections(detections, gax[0], orig)
+            
+            tagimg = orig.copy()
+            draw_detections(tagimg, detections, draw_sampling=0)            
             #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
-                            
-            show_detect(det, orig)
-                            
-            #cv2.imshow('tags', cv2.resize(tagimg,(0,0),fx=0.5,fy=0.5))
-            #cv2.waitKey(0)
-            
             cv2.imwrite(filename,tagimg)
             
-            plt.show(block=True)
+            plt.show(block=False)
+            
+            _ = input("Stopped at frame {}. Press Enter to continue".format(f))
     else: # Input is an image (or several)
         print('Processing image(s) {}'.format(options.filenames))
         for filename in options.filenames:
 
             if have_cv2:
                 orig = cv2.imread(filename)
-                if len(orig.shape) == 3:
-                    gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
-                else:
-                    gray = orig
-                #cv2.imshow('win', gray)
-                #while cv2.waitKey(5) < 0:
-                #    pass
             else:
                 pil_image = Image.open(filename)
                 orig = numpy.array(pil_image)
-                gray = numpy.array(pil_image.convert('L'))
-            if (options.inverse):
-                gray = 255-gray
-
-            detections = det.detect(gray, return_image=False)
-            #detections, dimg = det.detect(gray, return_image=True)
-
-            num_detections = len(detections)
-            print('Detected {} tags.\n'.format(num_detections))
-
-            for i, detection in enumerate(detections):
-                print('Detection {} of {}:'.format(i+1, num_detections))
-                print()
-                print(detection.tostring(indent=2))
-                print()
-
-            plt.gray()
-            plt.imshow(cv2.cvtColor(orig, cv2.COLOR_BGR2RGB))
-        
-            for D in detections:
-                print(repr(D))
-                c=D.corners
-                print(c[:,1])
-                pp,=plt.plot(c[:,0],c[:,1],'-')
-                plt.plot(c[:,0],c[:,1],'o',markeredgecolor=pp.get_color(), markerfacecolor="None")
-                plt.text(np.mean(c[:,0]),np.min(c[:,1])-5,str(D.tag_id),fontsize=12,horizontalalignment='center', verticalalignment='bottom', color=pp.get_color())
-                plt.tight_layout()
+                #gray = numpy.array(pil_image.convert('L'))
                 
-                h,w, = gray.shape
-                plt.gca().set_xlim(left=0, right=w)
-                plt.gca().set_ylim(top=0, bottom=h)
-        
-            plt.show(block=True)
+            detections = do_detect(det, orig)
+            
+            plot_detections(detections, gax[0], orig)
+            
+            tagimg = orig.copy()
+            draw_detections(tagimg, detections, draw_sampling=0)            
+            #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
+            cv2.imwrite(filename,tagimg)
+            
+            plt.show(block=False)
 
 #             if len(orig.shape) == 3:
 #                 overlay = orig / 2 + dimg[:, :, None] / 2

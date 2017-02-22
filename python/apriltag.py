@@ -132,10 +132,14 @@ def _matd_get_array(mat_ptr):
 
 ######################################################################
 
-DetectionBase = collections.namedtuple(
+class DetectionBase(collections.namedtuple(
     'DetectionBase',
     'tag_family, tag_id, hamming, goodness, decision_margin, '
-    'homography, center, corners')
+    'homography, center, corners')):
+    """ 
+    namedtuple(tag_family, tag_id, hamming, goodness, decision_margin,
+    homography, center, corners)
+    """
 
 class Detection(DetectionBase):
 
@@ -199,7 +203,8 @@ argparse.ArgumentParser on which you have called add_arguments.
                  refine_decode=False,
                  refine_pose=False,
                  debug=0,
-                 quad_contours=True):
+                 quad_contours=True,
+                 inverse=False):
 
         self.families = families
         self.border = int(border)
@@ -212,6 +217,7 @@ argparse.ArgumentParser on which you have called add_arguments.
         self.refine_pose = int(refine_pose)
         self.debug = int(debug)
         self.quad_contours = quad_contours
+        self.inverse = inverse
 
 ######################################################################
 
@@ -266,6 +272,10 @@ Detector.
                         
     parser.add_argument('-D', dest='debug', type=int, default=defaults.debug,
                         help='define debug flags')
+                        
+    parser.add_argument('-I', dest='inverse', default=False, 
+                        action='store_true',
+                        help='Process inverse image')
 
 
 ######################################################################
@@ -317,10 +327,13 @@ add_arguments; or an instance of the DetectorOptions class.'''
         self.tag_detector.refine_decode = int(options.refine_decode)
         self.tag_detector.refine_pose = int(options.refine_pose)
         self.tag_detector.debug = int(options.debug)
+        print("In Detector.__init__")
         print(self.tag_detector.debug)
 
         if options.quad_contours:
             self.libc.apriltag_detector_enable_quad_contours(self.tag_detector, 1)
+
+        self.inverse = options.inverse
 
         self.families = []
 
@@ -353,7 +366,7 @@ image of type numpy.uint8.'''
         assert len(img.shape) == 2
         assert img.dtype == numpy.uint8
 
-        c_img = self._convert_image(img)
+        c_img = self._convert_image(img, self.inverse)
 
         #detect apriltags in the image
         detections = self.libc.apriltag_detector_detect(self.tag_detector, c_img)
@@ -428,7 +441,7 @@ image of type numpy.uint8.'''
         self.libc.apriltag_family_list.restype = ctypes.POINTER(_ZArray)
         self.libc.apriltag_vis_detections.restype = None
 
-    def _convert_image(self, img):
+    def _convert_image(self, img, inverse):
 
         height = img.shape[0]
         width = img.shape[1]
@@ -438,7 +451,10 @@ image of type numpy.uint8.'''
 
         # copy the opencv image into the destination array, accounting for the
         # difference between stride & width.
-        tmp[:, :width] = img
+        if (inverse):
+            tmp[:, :width] = 255-img
+        else:
+            tmp[:, :width] = img
 
         # tmp goes out of scope here but we don't care because
         # the underlying data is still in c_img.
