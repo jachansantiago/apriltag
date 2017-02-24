@@ -88,7 +88,7 @@ struct apriltag_family
 };
 
 
-struct apriltag_quad_thresh_params
+typedef struct apriltag_quad_thresh_params
 {
     // reject quads containing too few pixels
     int min_cluster_pixels;
@@ -116,9 +116,9 @@ struct apriltag_quad_thresh_params
 
     // should the thresholded image be deglitched? This
     int deglitch;
-};
+} apriltag_quad_thresh_params_t;
 
-struct apriltag_quad_contour_params
+typedef struct apriltag_quad_contour_params
 {
 
   // neighborhood size for adaptive threshold 
@@ -150,7 +150,7 @@ struct apriltag_quad_contour_params
   // how many pixels to skip near corners (affine offset)
   float corner_skip_bias;
   
-};
+} apriltag_quad_contour_params_t;
 
 // Represents a detector object. Upon creating a detector, all fields
 // are set to reasonable values, but can be overridden by accessing
@@ -210,8 +210,8 @@ struct apriltag_detector
     int quad_contours;
 
     union { 
-      struct apriltag_quad_thresh_params qtp;
-      struct apriltag_quad_contour_params qcp;
+      apriltag_quad_thresh_params_t qtp;
+      apriltag_quad_contour_params_t qcp;
     };
 
     ///////////////////////////////////////////////////////////////
