@@ -422,10 +422,11 @@ image of type numpy.uint8.'''
         family = self.libc.apriltag_family_create(name.encode())
 
         if family:
+            print('Adding tag family "{}"...'.format(name))
             family.contents.border = self.options.border
             self.libc.apriltag_detector_add_family(self.tag_detector, family)
         else:
-            print('Unrecognized tag family name. Try e.g. tag36h11')
+            print('Unrecognized tag family "{}". Try e.g. tag36h11'.format(name))
 
     def _vis_detections(self, shape, detections):
 

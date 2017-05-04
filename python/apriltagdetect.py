@@ -14,9 +14,9 @@ import numpy as np
 import os
 import math
 
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-plt.style.use('seaborn-paper')
+#import matplotlib.pyplot as plt
+#from matplotlib.backends.backend_pdf import PdfPages
+#plt.style.use('seaborn-paper')
 
 
 import cv2
@@ -52,19 +52,19 @@ def init_detection(config='tag36h10'):
 import json    
 from collections import OrderedDict
 
-def detectionsToArray(detections):
+def detectionsToObj(detections):
+    """Detection list to Python object hierarchy"""
     data = []
     for detection in detections:
-        #print(detection)
-#         item = {'family': detection.tag_family.decode(),
-#                 'id': detection.tag_id,
-#                 'hamming': detection.hamming,
-#                 'goodness': detection.goodness,
-#                 'decision_margin': detection.decision_margin,
-#                 'H': detection.homography.tolist(),
-#                 'c': detection.center.tolist(),
-#                 'p': detection.corners.tolist()
-#                }
+        # item = {'family': detection.tag_family.decode(),
+        #         'id': detection.tag_id,
+        #         'hamming': detection.hamming,
+        #         'goodness': detection.goodness,
+        #         'decision_margin': detection.decision_margin,
+        #         'H': detection.homography.tolist(),
+        #         'c': detection.center.tolist(),
+        #         'p': detection.corners.tolist()
+        #        }
         item = OrderedDict( [
                         ('family', detection.tag_family.decode()),
                         ('id', detection.tag_id),
@@ -77,15 +77,40 @@ def detectionsToArray(detections):
                     ] )
         data.append(item)
     return data
+def objToDetections(data):
+    """Convert Python object hierarchy to detection list"""
+    detections = []
+    for item in data:                
+        detection = apriltag.Detection(
+                item['family'].encode(),
+                item['id'],
+                item['hamming'],
+                item['goodness'],
+                item['decision_margin'],
+                np.array(item['H']),
+                np.array(item['c']),
+                np.array(item['p']))
+        detections.append(detection)
+    return detections
 
 def savejson(detections, filename):
+    """Save detections to JSON file"""
     
-    data = detectionsToArray(detections)
+    data = detectionsToObj(detections)
     
     #print(json.dumps(dataArray));
     #return json.dumps(dataArray)
     with open(filename, 'w') as outfile:
         json.dump(data, outfile, indent=2, sort_keys=False)
+        
+def loadjson(filename):
+    """Load detections from JSON file"""
+
+    with open(filename, 'r') as infile:
+        obj = json.load(infile)
+    detections = objToDetections(obj)
+    return detections
+
 
 from timeit import default_timer as timer
 
@@ -148,13 +173,20 @@ def plot_detections(detections, ax, orig):
     
     plt.show(block=False)    
     
+def tagsize(D):
+    def d(i,j):
+        dx=D.corners[i,0]-D.corners[j,0]
+        dy=D.corners[i,1]-D.corners[j,1]
+        return math.sqrt(dx*dx+dy*dy)
+    return max([d(0,1),d(1,2),d(2,3),d(3,0)])
+
 # def tagradius(D):
 #     x=[D.corners[i,0] for i in range(4)]
 #     y=[D.corners[i,1] for i in range(4)]
 #     return max([max(x)-min(x), max(y)-min(y)])
     
 def draw_detections(tagimg, detections, draw_sampling=0, 
-                    textthickness=2, fontscale=1.0):
+                    textthickness=2, fontscale=1.0, options=None):
     
     for D in detections:
         #print(repr(D))
@@ -167,11 +199,27 @@ def draw_detections(tagimg, detections, draw_sampling=0,
         
             return u/w,v/w
         
-        cv2.polylines(tagimg, np.int32([c.reshape(-1, 1,2)]), False, (255,0,0))
+        if (D.tag_id<0):
+            col = (0,0,255)
+        else:
+            if (D.hamming==0):
+                col = (255,0,0)
+            elif (D.hamming==1):
+                col = (255,128,0)
+            else:
+                col = (255,255,0)
+        
+        if (options is not None):
+          if (tagsize(D)>options.max_side_length):
+              col = (0,255,255)
+        
+        cv2.polylines(tagimg, np.int32([c.reshape(-1, 1,2)]), False, col)
         
         st=str(D.tag_id)
         sz,baseline=cv2.getTextSize(st, cv2.FONT_HERSHEY_SIMPLEX,fontscale,textthickness)
-        cv2.putText(tagimg, st, tuple(np.int32([np.mean(c[:,0])-sz[0]/2,np.min(c[:,1])-5])),cv2.FONT_HERSHEY_SIMPLEX,fontScale=fontscale,color=(255,0,0),thickness=textthickness)
+            
+        cv2.putText(tagimg, st, tuple(np.int32([np.mean(c[:,0])-sz[0]/2,np.min(c[:,1])-5])),cv2.FONT_HERSHEY_SIMPLEX,fontScale=fontscale,color=col,thickness=textthickness)
+        #cv2.putText(tagimg, st, tuple(np.int32([np.mean(c[:,0])-sz[0]/2,np.max(c[:,1])+15])),cv2.FONT_HERSHEY_SIMPLEX,fontScale=fontscale,color=col,thickness=textthickness)
         
         #cv2.putText(tagimg, "{}px".format(int(tagradius(D))), tuple(np.int32([np.mean(c[:,0])-sz[0]/2,np.max(c[:,1])+5])),cv2.FONT_HERSHEY_SIMPLEX,fontScale=fontscale/2,color=(0,0,255),thickness=1)
         
@@ -179,6 +227,9 @@ def draw_detections(tagimg, detections, draw_sampling=0,
             H = D.homography;
             
             x=0; y=0;
+            st="H{}".format(D.hamming)
+            sz,baseline=cv2.getTextSize(st, cv2.FONT_HERSHEY_SIMPLEX,fontscale/2,1)
+            cv2.putText(tagimg, st, tuple(np.int32([np.mean(c[:,0])-sz[0]/2,np.max(c[:,1])+10])),cv2.FONT_HERSHEY_SIMPLEX,fontScale=fontscale/2,color=(0,0,255),thickness=1)
             
             #sv.libc.homography_project(H, 0, 0, x, y);
             
@@ -216,7 +267,7 @@ def main():
     # pylint: disable=E1101
 
     parser = ArgumentParser(
-        description='Detect apriltag in videos and images')
+        description='Detect apriltag in videos and images. Output to tagjson/ directory')
         
     show_default = ' (default %(default)s)'
 
@@ -229,19 +280,23 @@ def main():
                         help='Frame start '+ show_default)
     parser.add_argument('-f1', dest='f1', default=0, type=int,
                         help='Frame end '+ show_default)
-    parser.add_argument('-fps', dest='fps', default=22.0, type=float,
+    parser.add_argument('-fps', dest='fps', default=20.0, type=float,
                         help='fps '+ show_default)
                         
-    parser.add_argument('-min_side_length', dest='min_side_length', default=25, 
-                        type=int,
-                        help='Tags smaller than that are discarded '+ show_default)
-    parser.add_argument('-min_aspect', dest='min_aspect',
-                        default=0.7, type=float,
-                        help='Tags smaller than that are discarded '+ show_default)
-                        
-    parser.add_argument('-nowait', dest='nowait', default=False, 
+    parser.add_argument('-tagout', dest='tagout', default=False, 
                         action='store_true',
-                        help='Process all input without waiting for user')
+                        help='Save image with detected tags overlay '+ show_default)
+          
+    if (True):     
+        parser.add_argument('-max_side_length', dest='max_side_length', 
+                        default=35, type=int,
+                        help='Maximum tag size in pixel '+ show_default)         
+        parser.add_argument('-min_side_length', dest='min_side_length',       
+                        default=20, type=int,
+                        help='Tags smaller than that are discarded '+ show_default)
+        parser.add_argument('-min_aspect', dest='min_aspect',
+                            default=0.7, type=float,
+                            help='Tags smaller than that are discarded '+ show_default)
                         
     apriltag.add_arguments(parser)
 
@@ -280,9 +335,33 @@ def main():
     if not (options.video_in is None): # Input is a video
         print('Processing video {}'.format(options.video_in))
         vidcap = cv2.VideoCapture(options.video_in)
+        
+        if not vidcap.isOpened(): 
+            print("Could not open video. Aborting.")
+            return
+        
         vidcap.set(cv2.CAP_PROP_POS_FRAMES,0)     
         nframes=vidcap.get(cv2.CAP_PROP_FRAME_COUNT);
-        options.f1=int(min(options.f1,nframes))
+        coderfps=vidcap.get(cv2.CAP_PROP_FPS)
+        
+        vidcap.set(cv2.CAP_PROP_POS_FRAMES,nframes-1)
+        duration=vidcap.get(cv2.CAP_PROP_POS_MSEC)/1000.0;
+        
+        print("Opened video.\n  nframes={}\n  nframes with cmd line fps={}\n  coder fps={}\n  coder video duration={}s={}min\n  command line fps={}\n  command line duration={}s={}min\n  time at frame {}={}s".format(nframes, nframes*coderfps/options.fps,
+                 coderfps,nframes/coderfps, nframes/coderfps/60,
+                 options.fps,nframes/options.fps, nframes/options.fps/60,
+                 int(nframes), duration))
+                 
+        print('ffprobe infos:')
+        import shlex, subprocess
+        cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep nb_frames=".format(options.video_in)
+        subprocess.call(cmdline,shell=True)
+        cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep duration=".format(options.video_in)
+        subprocess.call(cmdline,shell=True)
+        cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep frame_rate=".format(options.video_in)
+        subprocess.call(cmdline,shell=True)
+        
+        #options.f1=int(min(options.f1,nframes))
         
         #win = cv2.namedWindow('tags',cv2.WINDOW_NORMAL)
         
@@ -297,7 +376,7 @@ def main():
             filename="tagout/tagout_{:05d}.png".format(f)
             filenameJSON="tagjson/tags_{:05d}.json".format(f)
         
-            print("Processing frame {}, saving to {}".format(f,filename))
+            print("Processing frame {}".format(f))
         
             tstart = timer()
                                 
@@ -316,14 +395,17 @@ def main():
             enddetect = timer()
             #printfps(enddetect-endread, 'detect')
 
+            print("  Saving JSON to {}".format(filenameJSON))
             savejson(detections, filenameJSON)
 
             #plot_detections(detections, gax[0], orig)
             
-            tagimg = orig.copy()
-            draw_detections(tagimg, detections, draw_sampling=0)            
-            #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
-            cv2.imwrite(filename,tagimg)
+            if (options.tagout):
+                print("  Saving tagimg to {}".format(filename))
+                tagimg = orig.copy()
+                draw_detections(tagimg, detections, draw_sampling=0, fontscale=0.75, options=options)            
+                #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
+                cv2.imwrite(filename,tagimg)
             
             #print_detections(detections, show_details=False)
             #print('Detected {} tags'.format(len(detections)))
@@ -336,7 +418,7 @@ def main():
             endsave = timer()
             #printfps(endsave-enddetect,'save')
             #printfps(endsave-tstart, 'TOTAL')
-            print('frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
+            print('  frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
                 f, len(detections), 
                 endread-tstart, enddetect-endread, endsave-enddetect, 
                 endsave-tstart, 1.0/(endsave-tstart)))
@@ -360,7 +442,7 @@ def main():
             #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
             cv2.imwrite(filename,tagimg)
             
-            plt.show(block=False)
+            #plt.show(block=False)
 
 if __name__ == '__main__':
 
