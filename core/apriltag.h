@@ -212,7 +212,7 @@ struct apriltag_detector
     union { 
       apriltag_quad_thresh_params_t qtp;
       apriltag_quad_contour_params_t qcp;
-    };
+    };// apriltag_quad_params;
 
     ///////////////////////////////////////////////////////////////
     // Statistics relating to last processed frame

@@ -3,7 +3,9 @@
 #include "tag36h10.h"
 #include "tag36artoolkit.h"
 #include "tag25h9.h"
+#include "tag25h6.h"
 #include "tag25h7.h"
+#include "tag25h5.h"
 #include "tag16h5.h"
 #include "tagbeetag.h"
 #include <stdio.h>
@@ -21,6 +23,8 @@ static const struct apriltag_family_info lookup[] = {
   { "tag36artoolkit", tag36artoolkit_create },
   { "tag25h9", tag25h9_create },
   { "tag25h7", tag25h7_create },
+  { "tag25h6", tag25h6_create },
+  { "tag25h5", tag25h5_create },
   { "tag16h5", tag16h5_create },
   { "tagbeetag", tagbeetag_create },
   { NULL, NULL }
