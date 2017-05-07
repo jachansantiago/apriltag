@@ -403,6 +403,9 @@ image of type numpy.uint8.'''
 
             #Append this dict to the tag data array
             return_info.append(detection)
+            
+        # FIXED memory leak?
+        self.libc.apriltag_detections_destroy(detections)
 
         if return_image:
 
