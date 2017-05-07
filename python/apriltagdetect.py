@@ -399,7 +399,7 @@ def main():
             filename="tagout/tagout_{:05d}.png".format(f)
             filenameJSON="tagjson/tags_{:05d}.json".format(f)
         
-            print("Processing frame {}".format(f))
+            print("Processing frame {}".format(f), flush=True)
         
             tstart = timer()
                                 
