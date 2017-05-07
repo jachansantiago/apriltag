@@ -296,7 +296,7 @@ def main():
     parser.add_argument('filenames', metavar='IMAGE', nargs='*',
                         help='files to convert')
 
-    parser.add_argument('-fp', '--family-preset', 
+    parser.add_argument('-F', '--family-preset', 
                         action=FamilyPresetAction,
                         help='Family preset: detect "inv" at the end of the name to set both "family" and "inverse"')
     parser.add_argument('-V', dest='video_in', default=None,
