@@ -257,6 +257,26 @@ def draw_detections(tagimg, detections, draw_sampling=0,
                 x2=int(x2); y2=int(y2);                x1=int(x1); y1=int(y1);
                 cv2.line(tagimg, (x1,y1), (x2,y2), (0,255,0),1)
 
+class FamilyPresetAction(argparse.Action):
+    def __init__(self, option_strings=None, dest=None, nargs=None, **kwargs):
+        if nargs is not None:
+            raise ValueError("nargs not allowed")
+        super(FamilyPresetAction, self).__init__(option_strings, dest, **kwargs)
+    def __call__(self, parser, namespace, values, option_string=None):
+        #print('--page_size: %r %r %r' % (namespace, values, option_string))
+                
+        if (values.endswith('inv')):
+            inverse=True
+            families=values[0:-3]
+        else:
+            inverse=False
+            families=values
+                    
+        setattr(namespace, 'families', families)
+        setattr(namespace, 'inverse', inverse)
+        
+        print('Preset {}: families={}, inverse={}'.format(values, families,inverse))
+
 def main():
 
     '''Detect apriltags.'''
@@ -270,10 +290,15 @@ def main():
         description='Detect apriltag in videos and images. Output to tagjson/ directory')
         
     show_default = ' (default %(default)s)'
+    
+    apriltag.add_arguments(parser)
 
     parser.add_argument('filenames', metavar='IMAGE', nargs='*',
                         help='files to convert')
 
+    parser.add_argument('-fp', '--family-preset', 
+                        action=FamilyPresetAction,
+                        help='Family preset: detect "inv" at the end of the name to set both "family" and "inverse"')
     parser.add_argument('-V', dest='video_in', default=None,
                         help='Input video')
     parser.add_argument('-f0', dest='f0', default=0, type=int,
@@ -297,8 +322,6 @@ def main():
         parser.add_argument('-min_aspect', dest='min_aspect',
                             default=0.7, type=float,
                             help='Tags smaller than that are discarded '+ show_default)
-                        
-    apriltag.add_arguments(parser)
 
     options = parser.parse_args()
     
