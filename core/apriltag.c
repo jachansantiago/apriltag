@@ -330,9 +330,9 @@ void apriltag_detector_enable_quad_contours(apriltag_detector_t* td,
   td->quad_contours = enable;
 
   if (enable) {
-    apriltag_quad_contour_defaults(&td->qcp);
+    apriltag_quad_contour_defaults(&td->qp.qcp);
   } else {
-    apriltag_quad_thresh_defaults(&td->qtp);
+    apriltag_quad_thresh_defaults(&td->qp.qtp);
   }
   
 }
@@ -345,7 +345,7 @@ apriltag_detector_t *apriltag_detector_create()
 
 
     td->quad_contours = 0;
-    apriltag_quad_thresh_defaults(&td->qtp);
+    apriltag_quad_thresh_defaults(&td->qp.qtp);
 
     td->tag_families = zarray_create(sizeof(apriltag_family_t*));
 

@@ -523,7 +523,7 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
         return 0;
 
     // select only the best maxima if we have too many
-    int max_nmaxima = td->qtp.max_nmaxima;
+    int max_nmaxima = td->qp.qtp.max_nmaxima;
 
     if (nmaxima > max_nmaxima) {
         double maxima_errs_copy[nmaxima];
@@ -550,7 +550,7 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
     double params01[4], params12[4], params23[4], params30[4];
 
     // disallow quads where the angle is less than a critical value.
-    double max_dot = cos(td->qtp.critical_rad); //25*M_PI/180);
+    double max_dot = cos(td->qp.qtp.critical_rad); //25*M_PI/180);
 
     for (int m0 = 0; m0 < nmaxima - 3; m0++) {
         int i0 = maxima[m0];
@@ -560,14 +560,14 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
 
             fit_line(lfps, sz, i0, i1, params01, &err01, &mse01);
 
-            if (mse01 > td->qtp.max_line_fit_mse)
+            if (mse01 > td->qp.qtp.max_line_fit_mse)
                 continue;
 
             for (int m2 = m1+1; m2 < nmaxima - 1; m2++) {
                 int i2 = maxima[m2];
 
                 fit_line(lfps, sz, i1, i2, params12, &err12, &mse12);
-                if (mse12 > td->qtp.max_line_fit_mse)
+                if (mse12 > td->qp.qtp.max_line_fit_mse)
                     continue;
 
                 double dot = params01[2]*params12[2] + params01[3]*params12[3];
@@ -578,11 +578,11 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
                     int i3 = maxima[m3];
 
                     fit_line(lfps, sz, i2, i3, params23, &err23, &mse23);
-                    if (mse23 > td->qtp.max_line_fit_mse)
+                    if (mse23 > td->qp.qtp.max_line_fit_mse)
                         continue;
 
                     fit_line(lfps, sz, i3, i0, params30, &err30, &mse30);
-                    if (mse30 > td->qtp.max_line_fit_mse)
+                    if (mse30 > td->qp.qtp.max_line_fit_mse)
                         continue;
 
                     double err = err01 + err12 + err23 + err30;
@@ -604,7 +604,7 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
     for (int i = 0; i < 4; i++)
         indices[i] = best_indices[i];
 
-    if (best_error / sz < td->qtp.max_line_fit_mse)
+    if (best_error / sz < td->qp.qtp.max_line_fit_mse)
         return 1;
     return 0;
 }
@@ -987,7 +987,7 @@ int fit_quad(apriltag_detector_t *td, image_u8_t *im, zarray_t *cluster, struct 
             fit_line(lfps, sz, i0, i1, lines[i], NULL, &err);
 
             // XXX VALUE?
-            if (err > td->qtp.max_line_fit_mse) {
+            if (err > td->qp.qtp.max_line_fit_mse) {
                 res = 0;
                 goto finish;
             }
@@ -1078,7 +1078,7 @@ int fit_quad(apriltag_detector_t *td, image_u8_t *im, zarray_t *cluster, struct 
             if (dtheta < 0)
                 dtheta += 2*M_PI;
 
-            if (dtheta < td->qtp.critical_rad || dtheta > (M_PI - td->qtp.critical_rad))
+            if (dtheta < td->qp.qtp.critical_rad || dtheta > (M_PI - td->qp.qtp.critical_rad))
                 res = 0;
 
             total += dtheta;
@@ -1179,7 +1179,7 @@ static void do_quad_task(void *p)
         zarray_t *cluster;
         zarray_get(clusters, cidx, &cluster);
 
-        if (zarray_size(cluster) < td->qtp.min_cluster_pixels)
+        if (zarray_size(cluster) < td->qp.qtp.min_cluster_pixels)
             continue;
 
         // a cluster should contain only boundary points around the
@@ -1288,7 +1288,7 @@ image_u8_t *threshold(apriltag_detector_t *td, image_u8_t *im)
             }
 
             // XXX Tunable
-            if (max - min < td->qtp.min_white_black_diff)
+            if (max - min < td->qp.qtp.min_white_black_diff)
                 continue;
 
             // argument for biasing towards dark; specular highlights
@@ -1475,7 +1475,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
         timeprofile_stamp(td->tp, "sumim");
 
         // deglitch
-        if (td->qtp.deglitch) {
+        if (td->qp.qtp.deglitch) {
             for (int y = 1; y+1 < h; y++) {
                 for (int x = 1; x+1 < w; x++) {
                     // edge: black pixel next to white pixel
@@ -1661,7 +1661,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
 // No. The segmented regions can be smaller than min_cluster_pixels,
 // with the region between them still bigger.
 //
-//                if (unionfind_get_set_size(uf, rep1) < td->qtp.min_cluster_pixels)
+//                if (unionfind_get_set_size(uf, rep1) < td->qp.qtp.min_cluster_pixels)
 //                    continue;
 
                 uint64_t clusterid;
@@ -1702,7 +1702,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
             for (int x = 0; x < w; x++) {
                 uint32_t v = unionfind_get_representative(uf, y*w+x);
 
-                if (unionfind_get_set_size(uf, v) < (uint32_t)td->qtp.min_cluster_pixels)
+                if (unionfind_get_set_size(uf, v) < (uint32_t)td->qp.qtp.min_cluster_pixels)
                     continue;
 
                 uint8_t color = colors[v];

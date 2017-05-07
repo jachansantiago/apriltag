@@ -470,7 +470,7 @@ static inline int lines_from_corners_contour(const apriltag_detector_t* td,
         
     assert( count >= 8 );
 
-    int corner_skip = count * td->qcp.corner_skip_scl + td->qcp.corner_skip_bias;
+    int corner_skip = count * td->qp.qcp.corner_skip_scl + td->qp.qcp.corner_skip_bias;
     corner_skip = corner_skip > count/4 ? count/4 : corner_skip;
         
     start = (start + corner_skip) % n;
@@ -487,7 +487,7 @@ static inline int lines_from_corners_contour(const apriltag_detector_t* td,
 
     zarray_destroy(outer);
 
-    if ((mean_outer - mean_inner) < td->qcp.contour_margin) {
+    if ((mean_outer - mean_inner) < td->qp.qcp.contour_margin) {
       return 0;
     } else if (!moments.n) {
       return 0;
@@ -510,8 +510,8 @@ static inline int quad_from_contour(const apriltag_detector_t* td,
 
 
   /* Look at perimiter and area */
-  const int min_perimeter = 4*td->qcp.min_side_length;
-  const float min_area = td->qcp.min_side_length * td->qcp.min_side_length;
+  const int min_perimeter = 4*td->qp.qcp.min_side_length;
+  const float min_area = td->qp.qcp.min_side_length * td->qp.qcp.min_side_length;
 
   /* Eliminate really tiny contours: if each side of the contour is 1
      pixel, we can lower-bound perimiter */
@@ -539,7 +539,7 @@ static inline int quad_from_contour(const apriltag_detector_t* td,
   quad_from_points(ci->points, ctr, q, idx, &l, &w);
       
   // diagonal aspect ratio check
-  if (w < td->qcp.min_aspect*l) {
+  if (w < td->qp.qcp.min_aspect*l) {
     return 2;
   }
 
@@ -549,13 +549,13 @@ static inline int quad_from_contour(const apriltag_detector_t* td,
   get_quad_sides(q, sides, &lmin, &lmax);
 
   // side aspect ratio check
-  if (lmin < td->qcp.min_aspect*lmax || lmin < td->qcp.min_side_length) {
+  if (lmin < td->qp.qcp.min_aspect*lmax || lmin < td->qp.qcp.min_side_length) {
     return 2;
   }
 
   // max dist from quad check
   float dmax = get_max_quad_dist(ci->points, sides, q);
-  if (dmax > td->qcp.point_dist_diam_scl*l+td->qcp.point_dist_bias) {
+  if (dmax > td->qp.qcp.point_dist_diam_scl*l+td->qp.qcp.point_dist_bias) {
     return 4;
   }
 
@@ -602,7 +602,7 @@ static inline int quad_from_contour(const apriltag_detector_t* td,
 
 
   get_quad_sides(q, sides, &lmin, &lmax);
-  if (lmin < td->qcp.min_aspect*lmax || lmin < td->qcp.min_side_length) {
+  if (lmin < td->qp.qcp.min_aspect*lmax || lmin < td->qp.qcp.min_side_length) {
     return 7;
   }
 
@@ -733,8 +733,8 @@ zarray_t* apriltag_quad_contour(apriltag_detector_t* td,
 
   /* Step 1: box blur & threshold (adaptive threshold) */
   image_u8_t* thresh = box_threshold_mt(im, 255, 1,
-                                        td->qcp.threshold_neighborhood_size,
-                                        td->qcp.threshold_value,
+                                        td->qp.qcp.threshold_neighborhood_size,
+                                        td->qp.qcp.threshold_value,
                                         td->wp);
 
   if (td->debug) {
