@@ -477,8 +477,8 @@ def main():
                   endread-tstart, enddetect-endread, endsave-enddetect, 
                   endsave-tstart, 1.0/(endsave-tstart)))
               if (use_resource):
-                maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-                print('  MEM  frame {:5}, {:10d} bytes'.format(f, maxrss)
+                maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                print('  MEM  frame {:5}, {:10d} bytes'.format(f, maxrss))
             
             if (use_pympler):
                 tr.print_diff()
