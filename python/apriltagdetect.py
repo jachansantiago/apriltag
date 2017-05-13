@@ -285,10 +285,6 @@ class FamilyPresetAction(argparse.Action):
         
         print('Preset {}: families={}, inverse={}'.format(values, families,inverse))
 
-def dbg_printrss():
-    if (use_resource):
-      print('Memory usage: {} (Bytes)'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
-
 def main():
 
     '''Detect apriltags.'''
@@ -434,16 +430,8 @@ def main():
         
             tstart = timer()
                                 
-            if (use_resource):
-              print('MAXRSS vidcap.read1 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
-            status,orig2 = vidcap.read();
-            orig = cv2.copyMakeBorder(orig2,0,0,0,0,cv2.BORDER_REPLICATE)
-            if (use_resource):
-              print('MAXRSS vidcap.read2 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
-            gc.collect
-            if (use_resource):
-              print('MAXRSS vidcap.read3 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+            status,orig = vidcap.read();
             
             # Caution: orig in BGR format by default
             if (orig is None):
@@ -453,22 +441,15 @@ def main():
             endread = timer()
             #printfps(endread - tstart, 'read')
             
-            if (use_resource):
-              print('MAXRSS do_detect1 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
-            detections = []
             detections = do_detect(det, orig)
-            if (use_resource):
-              print('MAXRSS do_detect2 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
             enddetect = timer()
-            
-            if (False):
 
-              #printfps(enddetect-endread, 'detect')
+            #printfps(enddetect-endread, 'detect')
 
-              print("  Saving JSON to {}".format(filenameJSON))
-              savejson(detections, filenameJSON)
+            print("  Saving JSON to {}".format(filenameJSON))
+            savejson(detections, filenameJSON)
 
-              #plot_detections(detections, gax[0], orig)
+            #plot_detections(detections, gax[0], orig)
             
             if (options.tagout):
                 print("  Saving tagimg to {}".format(filename))
@@ -488,15 +469,16 @@ def main():
             endsave = timer()
             #printfps(endsave-enddetect,'save')
             #printfps(endsave-tstart, 'TOTAL')
-            if (True):
+            if (False):
               print('  frame {:5}'.format(f))
             else:
-              print('  frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
+              print('  TIME frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
                   f, len(detections), 
                   endread-tstart, enddetect-endread, endsave-enddetect, 
                   endsave-tstart, 1.0/(endsave-tstart)))
-                  
-            dbg_printrss()
+              if (use_resource):
+                maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+                print('  MEM  frame {:5}, {:10d} bytes'.format(f, maxrss)
             
             if (use_pympler):
                 tr.print_diff()
