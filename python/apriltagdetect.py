@@ -5,11 +5,16 @@
 Author: Rémi Mégret, 2017
 """
 
+use_pympler = False
+if (use_pympler):
+    from pympler import muppy,summary,tracker
+use_resource = True
+if (use_resource):
+  import resource
 
 import apriltag
 
 import numpy as np
-
 
 import os
 import math
@@ -188,6 +193,9 @@ def tagsize(D):
 def draw_detections(tagimg, detections, draw_sampling=0, 
                     textthickness=2, fontscale=1.0, options=None):
     
+    if (use_resource):
+      print('MAXRSS draw_detections1 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+    
     for D in detections:
         #print(repr(D))
         c=D.corners
@@ -277,9 +285,16 @@ class FamilyPresetAction(argparse.Action):
         
         print('Preset {}: families={}, inverse={}'.format(values, families,inverse))
 
+def dbg_printrss():
+    if (use_resource):
+      print('Memory usage: {} (Bytes)'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+
 def main():
 
     '''Detect apriltags.'''
+    
+    if (use_pympler):
+      tr = tracker.SummaryTracker()
 
     from argparse import ArgumentParser
 
@@ -394,7 +409,23 @@ def main():
         def printfps(t, name):
             print("Time {:10}   = {:5.3f}s   ({:4.1f} fps)".format(name, t, 1.0/t)) 
         
+        fps=options.fps
+        
+        import gc
+        
+        vidcap.set(cv2.CAP_PROP_POS_MSEC,0)    
+        status,orig = vidcap.read();
+        # Caution: orig in BGR format by default
+        if (orig is None):
+            print('Warning: could not read frame {}'.format(f))
+            print('Aborting...')
+            return
+        print("Image size: {}".format(orig.shape))
+        
         for f in range(options.f0,options.f1+1):
+        
+            #vidcap.release()
+            #vidcap = cv2.VideoCapture(options.video_in)
         
             filename="tagout/tagout_{:05d}.png".format(f)
             filenameJSON="tagjson/tags_{:05d}.json".format(f)
@@ -403,9 +434,17 @@ def main():
         
             tstart = timer()
                                 
-            fps=options.fps
+            if (use_resource):
+              print('MAXRSS vidcap.read1 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
-            status,orig = vidcap.read();
+            status,orig2 = vidcap.read();
+            orig = cv2.copyMakeBorder(orig2,0,0,0,0,cv2.BORDER_REPLICATE)
+            if (use_resource):
+              print('MAXRSS vidcap.read2 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+            gc.collect
+            if (use_resource):
+              print('MAXRSS vidcap.read3 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+            
             # Caution: orig in BGR format by default
             if (orig is None):
                 print('Warning: could not read frame {}'.format(f))
@@ -414,14 +453,22 @@ def main():
             endread = timer()
             #printfps(endread - tstart, 'read')
             
+            if (use_resource):
+              print('MAXRSS do_detect1 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+            detections = []
             detections = do_detect(det, orig)
+            if (use_resource):
+              print('MAXRSS do_detect2 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
             enddetect = timer()
-            #printfps(enddetect-endread, 'detect')
+            
+            if (False):
 
-            print("  Saving JSON to {}".format(filenameJSON))
-            savejson(detections, filenameJSON)
+              #printfps(enddetect-endread, 'detect')
 
-            #plot_detections(detections, gax[0], orig)
+              print("  Saving JSON to {}".format(filenameJSON))
+              savejson(detections, filenameJSON)
+
+              #plot_detections(detections, gax[0], orig)
             
             if (options.tagout):
                 print("  Saving tagimg to {}".format(filename))
@@ -441,10 +488,18 @@ def main():
             endsave = timer()
             #printfps(endsave-enddetect,'save')
             #printfps(endsave-tstart, 'TOTAL')
-            print('  frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
-                f, len(detections), 
-                endread-tstart, enddetect-endread, endsave-enddetect, 
-                endsave-tstart, 1.0/(endsave-tstart)))
+            if (True):
+              print('  frame {:5}'.format(f))
+            else:
+              print('  frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
+                  f, len(detections), 
+                  endread-tstart, enddetect-endread, endsave-enddetect, 
+                  endsave-tstart, 1.0/(endsave-tstart)))
+                  
+            dbg_printrss()
+            
+            if (use_pympler):
+                tr.print_diff()
     else: # Input is an image (or several)
         print('Processing image(s) {}'.format(options.filenames))
         for filename in options.filenames:
