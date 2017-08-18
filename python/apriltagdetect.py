@@ -18,6 +18,7 @@ import numpy as np
 
 import os
 import math
+import sys
 
 #import matplotlib.pyplot as plt
 #from matplotlib.backends.backend_pdf import PdfPages
@@ -372,7 +373,7 @@ def main():
         
         if not vidcap.isOpened(): 
             print("Could not open video. Aborting.")
-            return
+            sys.exit(1)
         
         vidcap.set(cv2.CAP_PROP_POS_FRAMES,0)     
         nframes=vidcap.get(cv2.CAP_PROP_FRAME_COUNT);
@@ -415,7 +416,7 @@ def main():
         if (orig is None):
             print('Warning: could not read frame {}'.format(f))
             print('Aborting...')
-            return
+            sys.exit(1)
         print("Image size: {}".format(orig.shape))
         
         for f in range(options.f0,options.f1+1):

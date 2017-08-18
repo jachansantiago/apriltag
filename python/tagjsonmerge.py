@@ -74,8 +74,9 @@ def main():
                         c[0]=float(c[0])
                         c[1]=float(c[1])
                         p=item['p']
+                        dm=item['decision_margin']
                     
-                        outfile.write('      {{"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming},"p":{corners}}}'.format(id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],corners=("[[{},{}],[{},{}],[{},{}],[{},{}]]".format(p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])))) 
+                        outfile.write('      {{"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming},"p":{corners},"dm":{dm}}}'.format(id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],corners=("[[{},{}],[{},{}],[{},{}],[{},{}]]".format(p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])),dm=dm)) 
                     print('Added {} tags for frame {}: {}'.format(len(obj),f,[item['id'] for item in obj]))
             except IOError as e:
                 print('Could not open {}, ignoring.'.format(filenameJSON))
