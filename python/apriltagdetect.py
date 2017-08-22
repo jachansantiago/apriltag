@@ -108,6 +108,53 @@ def savejson(detections, filename):
     #return json.dumps(dataArray)
     with open(filename, 'w') as outfile:
         json.dump(data, outfile, indent=2, sort_keys=False)
+       
+class Multiframejson: 
+    def __init__(self, filename):
+        self.filename = filename
+        self.tmpfile = filename+'.tmp'
+        self.beginning = True
+        
+    def open(self):
+        with open(self.tmpfile, 'w') as outfile:
+            outfile.write('{\n')
+        self.beginning = True
+            
+    def close(self):
+        with open(self.tmpfile, 'a') as outfile:
+            outfile.write('}\n')
+        os.rename(self.tmpfile, self.filename)
+            
+    def append(self, detections, frame):
+        """Append detections to JSON file"""
+    
+        data = detectionsToObj(detections)
+
+        with open(self.tmpfile, 'a') as outfile:
+            if (not self.beginning):
+                outfile.write('  ,\n')
+            outfile.write('  "{f}":{{"tags":['.format(f=frame))
+            
+            #json.dump(data, outfile, indent=2, sort_keys=False)
+            flag=False
+            for item in data:
+                if (flag):
+                    outfile.write(',\n')
+                else:
+                    outfile.write('\n')
+                    flag=True
+            
+                c=item['c']
+                c[0]=float(c[0])
+                c[1]=float(c[1])
+                p=item['p']
+                g=item['goodness']
+                dm=item['decision_margin']
+            
+                outfile.write('      {{"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming},"p":{corners},"g":{g},"dm":{dm}}}'.format(id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],corners=("[[{},{}],[{},{}],[{},{}],[{},{}]]".format(p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])),dm=dm,g=g)) 
+            
+            outfile.write('\n  ]}}\n'.format())
+        self.beginning = False
         
 def loadjson(filename):
     """Load detections from JSON file"""
@@ -285,6 +332,7 @@ class FamilyPresetAction(argparse.Action):
         setattr(namespace, 'inverse', inverse)
         
         print('Preset {}: families={}, inverse={}'.format(values, families,inverse))
+        
 
 def main():
 
@@ -323,6 +371,9 @@ def main():
     parser.add_argument('-tagout', dest='tagout', default=False, 
                         action='store_true',
                         help='Save image with detected tags overlay '+ show_default)
+    parser.add_argument('-m', dest='multiframefile', default=False, 
+                        action='store_true',
+                        help='Save multiple frames into single JSON file '+ show_default)
           
     if (True):     
         parser.add_argument('-max_side_length', dest='max_side_length', 
@@ -419,6 +470,11 @@ def main():
             sys.exit(1)
         print("Image size: {}".format(orig.shape))
         
+        if (options.multiframefile):
+            filenameJSON="tagjson/tags_{:05d}-{:05d}.json".format(options.f0,options.f1)
+            singlejson=Multiframejson(filenameJSON)
+            singlejson.open()
+        
         for f in range(options.f0,options.f1+1):
         
             #vidcap.release()
@@ -447,8 +503,12 @@ def main():
 
             #printfps(enddetect-endread, 'detect')
 
-            print("  Saving JSON to {}".format(filenameJSON))
-            savejson(detections, filenameJSON)
+            if (options.multiframefile):
+                print("  Appending JSON to {}".format(singlejson.tmpfile))
+                singlejson.append(detections, f)
+            else:        
+                print("  Saving JSON to {}".format(filenameJSON))
+                savejson(detections, filenameJSON)
 
             #plot_detections(detections, gax[0], orig)
             
@@ -483,6 +543,11 @@ def main():
             
             if (use_pympler):
                 tr.print_diff()
+                
+        if (options.multiframefile):
+            print("  Closing JSON {}".format(singlejson.tmpfile))
+            singlejson.close()
+            
     else: # Input is an image (or several)
         print('Processing image(s) {}'.format(options.filenames))
         for filename in options.filenames:
