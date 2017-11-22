@@ -20,6 +20,8 @@ import os
 import math
 import sys
 
+import traceback
+
 #import matplotlib.pyplot as plt
 #from matplotlib.backends.backend_pdf import PdfPages
 #plt.style.use('seaborn-paper')
@@ -572,4 +574,10 @@ def main():
 
 if __name__ == '__main__':
 
-    main()
+    try:
+        main()
+    except:
+        print('apriltagdetect.py: Exception raised. See error output.')
+        print('apriltagdetect.py: Exception raised:', file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(-1)
