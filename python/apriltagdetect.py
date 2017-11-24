@@ -170,6 +170,7 @@ def loadjson(filename):
 from timeit import default_timer as timer
 
 def do_detect(det, orig):
+    #print("do_detect: cvtColor",file=sys.stderr,flush=True)
     if len(orig.shape) == 3:
         gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
     else:
@@ -179,10 +180,11 @@ def do_detect(det, orig):
     #    gray = 255-gray
 
     #start = timer()
+    #print("do_detect: det.detect",file=sys.stderr,flush=True)
     detections = det.detect(gray, return_image=False)
     #end = timer()
     #print("Time = ",end - start) 
-    
+    #print("do_detect: DONE",file=sys.stderr,flush=True)
     return detections
 
 def print_detections(detections, show_details=False):
@@ -426,7 +428,8 @@ def main():
         
         if not vidcap.isOpened(): 
             print("Could not open video. Aborting.")
-            sys.exit(1)
+            raise IOError("Could not open video {}. Aborting.".format(options.video_in))
+            #sys.exit(1)
         
         vidcap.set(cv2.CAP_PROP_POS_FRAMES,0)     
         nframes=vidcap.get(cv2.CAP_PROP_FRAME_COUNT);
@@ -469,7 +472,8 @@ def main():
         if (orig is None):
             print('Warning: could not read frame {}'.format(f))
             print('Aborting...')
-            sys.exit(1)
+            raise IOError("Could not read frame {}. Aborting.".format(f))
+            #sys.exit(1)
         print("Image size: {}".format(orig.shape))
         
         if (options.multiframefile):
@@ -488,7 +492,7 @@ def main():
             print("Processing frame {}".format(f), flush=True)
         
             tstart = timer()
-                                
+
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
             status,orig = vidcap.read();
             
@@ -500,9 +504,10 @@ def main():
             endread = timer()
             #printfps(endread - tstart, 'read')
             
+            #print('dodetect',flush=True,file=sys.stderr)
             detections = do_detect(det, orig)
             enddetect = timer()
-
+            #print('dodetect DONE',flush=True,file=sys.stderr)
             #printfps(enddetect-endread, 'detect')
 
             if (options.multiframefile):
@@ -581,3 +586,4 @@ if __name__ == '__main__':
         print('apriltagdetect.py: Exception raised:', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         sys.exit(-1)
+

@@ -371,11 +371,13 @@ image of type numpy.uint8.'''
         assert len(img.shape) == 2
         assert img.dtype == numpy.uint8
 
+        #print("Detector.detect: _convert_image",file=sys.stderr,flush=True)
         c_img = self._convert_image(img, self.inverse)
 
         #detect apriltags in the image
+        #print("Detector.detect: apriltag_detector_detect",file=sys.stderr,flush=True)
         detections = self.libc.apriltag_detector_detect(self.tag_detector, c_img)
-
+        #print("Detector.detect: apriltag_detector_detect DONE",file=sys.stderr,flush=True)
         #create a pytags_info object
         return_info = []
 
