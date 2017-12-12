@@ -5,14 +5,22 @@
 Author: Rémi Mégret, 2017
 """
 
+use_pympler = False
+if (use_pympler):
+    from pympler import muppy,summary,tracker
+use_resource = True
+if (use_resource):
+  import resource
 
 import apriltag
 
 import numpy as np
 
-
 import os
 import math
+import sys
+
+import traceback
 
 #import matplotlib.pyplot as plt
 #from matplotlib.backends.backend_pdf import PdfPages
@@ -102,6 +110,53 @@ def savejson(detections, filename):
     #return json.dumps(dataArray)
     with open(filename, 'w') as outfile:
         json.dump(data, outfile, indent=2, sort_keys=False)
+       
+class Multiframejson: 
+    def __init__(self, filename):
+        self.filename = filename
+        self.tmpfile = filename+'.tmp'
+        self.beginning = True
+        
+    def open(self):
+        with open(self.tmpfile, 'w') as outfile:
+            outfile.write('{\n')
+        self.beginning = True
+            
+    def close(self):
+        with open(self.tmpfile, 'a') as outfile:
+            outfile.write('}\n')
+        os.rename(self.tmpfile, self.filename)
+            
+    def append(self, detections, frame):
+        """Append detections to JSON file"""
+    
+        data = detectionsToObj(detections)
+
+        with open(self.tmpfile, 'a') as outfile:
+            if (not self.beginning):
+                outfile.write('  ,\n')
+            outfile.write('  "{f}":{{"tags":['.format(f=frame))
+            
+            #json.dump(data, outfile, indent=2, sort_keys=False)
+            flag=False
+            for item in data:
+                if (flag):
+                    outfile.write(',\n')
+                else:
+                    outfile.write('\n')
+                    flag=True
+            
+                c=item['c']
+                c[0]=float(c[0])
+                c[1]=float(c[1])
+                p=item['p']
+                g=item['goodness']
+                dm=item['decision_margin']
+            
+                outfile.write('      {{"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming},"p":{corners},"g":{g},"dm":{dm}}}'.format(id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],corners=("[[{},{}],[{},{}],[{},{}],[{},{}]]".format(p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])),dm=dm,g=g)) 
+            
+            outfile.write('\n  ]}}\n'.format())
+        self.beginning = False
         
 def loadjson(filename):
     """Load detections from JSON file"""
@@ -115,6 +170,7 @@ def loadjson(filename):
 from timeit import default_timer as timer
 
 def do_detect(det, orig):
+    #print("do_detect: cvtColor",file=sys.stderr,flush=True)
     if len(orig.shape) == 3:
         gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
     else:
@@ -124,10 +180,11 @@ def do_detect(det, orig):
     #    gray = 255-gray
 
     #start = timer()
+    #print("do_detect: det.detect",file=sys.stderr,flush=True)
     detections = det.detect(gray, return_image=False)
     #end = timer()
     #print("Time = ",end - start) 
-    
+    #print("do_detect: DONE",file=sys.stderr,flush=True)
     return detections
 
 def print_detections(detections, show_details=False):
@@ -187,6 +244,9 @@ def tagsize(D):
     
 def draw_detections(tagimg, detections, draw_sampling=0, 
                     textthickness=2, fontscale=1.0, options=None):
+    
+    if (use_resource):
+      print('MAXRSS draw_detections1 {}'.format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
     
     for D in detections:
         #print(repr(D))
@@ -276,10 +336,14 @@ class FamilyPresetAction(argparse.Action):
         setattr(namespace, 'inverse', inverse)
         
         print('Preset {}: families={}, inverse={}'.format(values, families,inverse))
+        
 
 def main():
 
     '''Detect apriltags.'''
+    
+    if (use_pympler):
+      tr = tracker.SummaryTracker()
 
     from argparse import ArgumentParser
 
@@ -311,6 +375,9 @@ def main():
     parser.add_argument('-tagout', dest='tagout', default=False, 
                         action='store_true',
                         help='Save image with detected tags overlay '+ show_default)
+    parser.add_argument('-m', dest='multiframefile', default=False, 
+                        action='store_true',
+                        help='Save multiple frames into single JSON file '+ show_default)
           
     if (True):     
         parser.add_argument('-max_side_length', dest='max_side_length', 
@@ -361,7 +428,8 @@ def main():
         
         if not vidcap.isOpened(): 
             print("Could not open video. Aborting.")
-            return
+            raise IOError("Could not open video {}. Aborting.".format(options.video_in))
+            #sys.exit(1)
         
         vidcap.set(cv2.CAP_PROP_POS_FRAMES,0)     
         nframes=vidcap.get(cv2.CAP_PROP_FRAME_COUNT);
@@ -394,7 +462,29 @@ def main():
         def printfps(t, name):
             print("Time {:10}   = {:5.3f}s   ({:4.1f} fps)".format(name, t, 1.0/t)) 
         
+        fps=options.fps
+        
+        import gc
+        
+        vidcap.set(cv2.CAP_PROP_POS_MSEC,0)    
+        status,orig = vidcap.read();
+        # Caution: orig in BGR format by default
+        if (orig is None):
+            print('Warning: could not read frame {}'.format(f))
+            print('Aborting...')
+            raise IOError("Could not read frame {}. Aborting.".format(f))
+            #sys.exit(1)
+        print("Image size: {}".format(orig.shape))
+        
+        if (options.multiframefile):
+            filenameJSON="tagjson/tags_{:05d}-{:05d}.json".format(options.f0,options.f1)
+            singlejson=Multiframejson(filenameJSON)
+            singlejson.open()
+        
         for f in range(options.f0,options.f1+1):
+        
+            #vidcap.release()
+            #vidcap = cv2.VideoCapture(options.video_in)
         
             filename="tagout/tagout_{:05d}.png".format(f)
             filenameJSON="tagjson/tags_{:05d}.json".format(f)
@@ -402,10 +492,10 @@ def main():
             print("Processing frame {}".format(f), flush=True)
         
             tstart = timer()
-                                
-            fps=options.fps
+
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
             status,orig = vidcap.read();
+            
             # Caution: orig in BGR format by default
             if (orig is None):
                 print('Warning: could not read frame {}'.format(f))
@@ -414,12 +504,18 @@ def main():
             endread = timer()
             #printfps(endread - tstart, 'read')
             
+            #print('dodetect',flush=True,file=sys.stderr)
             detections = do_detect(det, orig)
             enddetect = timer()
+            #print('dodetect DONE',flush=True,file=sys.stderr)
             #printfps(enddetect-endread, 'detect')
 
-            print("  Saving JSON to {}".format(filenameJSON))
-            savejson(detections, filenameJSON)
+            if (options.multiframefile):
+                print("  Appending JSON to {}".format(singlejson.tmpfile))
+                singlejson.append(detections, f)
+            else:        
+                print("  Saving JSON to {}".format(filenameJSON))
+                savejson(detections, filenameJSON)
 
             #plot_detections(detections, gax[0], orig)
             
@@ -441,10 +537,24 @@ def main():
             endsave = timer()
             #printfps(endsave-enddetect,'save')
             #printfps(endsave-tstart, 'TOTAL')
-            print('  frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
-                f, len(detections), 
-                endread-tstart, enddetect-endread, endsave-enddetect, 
-                endsave-tstart, 1.0/(endsave-tstart)))
+            if (False):
+              print('  frame {:5}'.format(f))
+            else:
+              print('  TIME frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
+                  f, len(detections), 
+                  endread-tstart, enddetect-endread, endsave-enddetect, 
+                  endsave-tstart, 1.0/(endsave-tstart)))
+              if (use_resource):
+                maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                print('  MEM  frame {:5}, {:10d} bytes'.format(f, maxrss))
+            
+            if (use_pympler):
+                tr.print_diff()
+                
+        if (options.multiframefile):
+            print("  Closing JSON {}".format(singlejson.tmpfile))
+            singlejson.close()
+            
     else: # Input is an image (or several)
         print('Processing image(s) {}'.format(options.filenames))
         for filename in options.filenames:
@@ -469,4 +579,11 @@ def main():
 
 if __name__ == '__main__':
 
-    main()
+    try:
+        main()
+    except:
+        print('apriltagdetect.py: Exception raised. See error output.')
+        print('apriltagdetect.py: Exception raised:', file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(-1)
+
