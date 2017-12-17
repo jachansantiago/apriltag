@@ -172,7 +172,7 @@ from timeit import default_timer as timer
 def do_detect(det, orig):
     #print("do_detect: cvtColor",file=sys.stderr,flush=True)
     if len(orig.shape) == 3:
-        gray = cv2.cvtColor(orig, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY) # Assume input is BGR
     else:
         gray = orig
     # Inversion done directly in Detector now
