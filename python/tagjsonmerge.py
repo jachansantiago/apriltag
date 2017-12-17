@@ -2,6 +2,7 @@
 
 #import apriltagdetect as atd
 import json
+from collections import OrderedDict
 
 
 def main():
@@ -81,67 +82,70 @@ def main():
                 outfile.write("\n    ]\n  }\n")               
                 if (f<options.f1): outfile.write("  ,\n");
         elif (options.multiframestep>=1): # Multiple frame input
+            
+            mergesources = []
             for fb in range(options.f0,options.f1+1,options.multiframestep):
-                
                 filenameJSON=options.mtags.format(fb,
                                                   fb+options.multiframestep-1)
+                mergesources.append(filenameJSON)
+            
+            # Copy meta info from first file
+            fb = options.f0
+            filenameJSON=mergesources[0]
+            with open(filenameJSON, 'r') as infile:
+                fileobj = json.load(infile, object_pairs_hook=OrderedDict)
+                
+                info = fileobj['info']
+                
+                info['mergesources'] = mergesources
+                
+                outfile.write('"info":')
+                json.dump(info, outfile, indent=2, sort_keys=False)
+                outfile.write('\n')
+                
+                outfile.write(',\n"data":{')
+            
+            for filenameJSON in mergesources:
+                
                 try:
                     with open(filenameJSON, 'r') as infile:
-                        fileobj = json.load(infile)
+                        fileobj = json.load(infile, object_pairs_hook=OrderedDict)
                         
-                        flag0=False
+                        data = fileobj['data']
                         
-                        for fid in fileobj.keys():
-                            obj = fileobj[fid]['tags']
+                        isFirstItem=True
+                        
+                        for frame in data.keys():
+                            framedata = data[frame]
                             
-                            if (flag0):
+                            frametags = framedata['tags']
+                            N = len(frametags)
+                            
+                            if (not isFirstItem):
                                 outfile.write('  ,\n')
                             else:
                                 outfile.write('\n')
-                                flag0=True
+                                isFirstItem=False
 
-                            outfile.write('  "{}":{{"tags":['.format(fid))
+                            outfile.write('  "{}":'.format(frame))
                             
-                            flag=False
-                            for item in obj:
-                                if (flag):
-                                    outfile.write('    ,\n')
-                                else:
-                                    outfile.write('\n')
-                                    flag=True
-                     
-                                s = '{'
-                    
-                                s += '"id":{}'.format(item['id'])
-                                
-                                c=item['c']
-                                c[0]=float(c[0])
-                                c[1]=float(c[1])
-                                s += ',"c":[{:.5f},{:.5f}]'.format(c[0],c[1])
-                                
-                                s += ',"hamming":{}'.format(item['hamming'])
-                                
-                                p=item['p']
-                                s += ',"corners":[[{:.5f},{:.5f}],[{:.5f},{:.5f}],[{:.5f},{:.5f}],[{:.5f},{:.5f}]]'.format(
-                                          p[0][0],p[0][1], p[1][0],p[1][1], 
-                                          p[2][0],p[2][1], p[3][0],p[3][1])
+                            outfile.write('{"tags": [')
+                            tags=[]
+                            for tag in frametags:
+                                tags.append(json.dumps(tag, indent=None, sort_keys=False))
+                            if (len(frametags)>0):
+                                outfile.write('\n    ' + ',\n    '.join(tags))
+                            outfile.write('\n  ]}') # end of tags, end of frame
 
-                                if ('decision_margin' in item):
-                                  s += '"dm":{}'.format(item['decision_margin'])
-                
-                                s += '}'
-                                
-                                outfile.write('    '+s+'\n')
-
-                            outfile.write('    ]\n')
-
-                            print('Added {} tags for frame {}: {}'.format(len(obj),fid,[item['id'] for item in obj]))
+                            print('Added {} tags for frame {}: {}'.format(N,frame,[str(item['id']) for item in frametags]))
                 except IOError as e:
                     print('Could not open {}, ignoring.'.format(filenameJSON))
-                
+            
+            outfile.write('\n}\n\n')  # end of data
+            
         else:
             print("ERROR: options.multiframestep should be positive")
-        outfile.write("}\n")
+        outfile.write("}\n")  # end of root
 
 
 if __name__ == '__main__':

@@ -22,9 +22,11 @@ import sys
 
 import traceback
 
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 #from matplotlib.backends.backend_pdf import PdfPages
 #plt.style.use('seaborn-paper')
+
+import binascii   # To translate images to hex
 
 
 import cv2
@@ -37,6 +39,8 @@ import argparse
 def init_detection(config='tag36h10'):
 
     presets = {
+        'tag25h5inv': argparse.Namespace(
+            border=1, families='[{}]'.format('tag25h5'), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=True),
         'tag36h10': argparse.Namespace(
             border=2, families='[{}]'.format('tag36h10'), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=False),
         'tagbeetag': argparse.Namespace(
@@ -111,23 +115,53 @@ def savejson(detections, filename):
     with open(filename, 'w') as outfile:
         json.dump(data, outfile, indent=2, sort_keys=False)
        
+def encodeHex(img):
+    H=binascii.hexlify(bytearray(img.astype(np.uint8)))
+    return H.decode()
+        
 class Multiframejson: 
     def __init__(self, filename):
         self.filename = filename
         self.tmpfile = filename+'.tmp'
         self.beginning = True
+        self.config = None
+        
+    def set_config(self, config):
+        self.config=config
         
     def open(self):
         with open(self.tmpfile, 'w') as outfile:
             outfile.write('{\n')
+            # Header
+            info = OrderedDict({
+                            'type':'tags-multiframe',
+                            'data-format':'root.data[frame].tags[id_in_frame]',
+                            })
+            if (self.config is not None):
+                info['config']=vars(self.config) # convert Namespace to OrderedDict
+            outfile.write('"info":')
+            json.dump(info, outfile, indent=2, sort_keys=False)
+            outfile.write('\n')
+            # Prepare data
+            outfile.write(',\n"data":{\n')
         self.beginning = True
             
     def close(self):
         with open(self.tmpfile, 'a') as outfile:
+            outfile.write('}\n\n')
             outfile.write('}\n')
         os.rename(self.tmpfile, self.filename)
+        
+#    # Context Manager to be used as:
+#    # with Multiframejson(filename) as mfs:
+#    #     mfs.append(...)
+#    def __enter__(self):
+#        self.open()
+#
+#    def __exit__(self, type, value, traceback):
+#        self.close()
             
-    def append(self, detections, frame):
+    def append(self, detections, frame, tagextra=None):
         """Append detections to JSON file"""
     
         data = detectionsToObj(detections)
@@ -139,7 +173,7 @@ class Multiframejson:
             
             #json.dump(data, outfile, indent=2, sort_keys=False)
             flag=False
-            for item in data:
+            for i,item in enumerate(data):
                 if (flag):
                     outfile.write(',\n')
                 else:
@@ -151,9 +185,31 @@ class Multiframejson:
                 c[1]=float(c[1])
                 p=item['p']
                 g=item['goodness']
+                
+                #print(item)
+                
                 dm=item['decision_margin']
             
-                outfile.write('      {{"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming},"p":{corners},"g":{g},"dm":{dm}}}'.format(id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],corners=("[[{},{}],[{},{}],[{},{}],[{},{}]]".format(p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])),dm=dm,g=g)) 
+                corners="[[{:.2f},{:.2f}],[{:.2f},{:.2f}],[{:.2f},{:.2f}],[{:.2f},{:.2f}]]".format(
+                          p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])
+            
+                outfile.write('      {')
+                outfile.write('"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming}'
+                              ',"p":{corners},"goodness":{g:.2f},"dm":{dm:.2f}'.format(
+                                      id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],
+                                      corners=corners,
+                                      dm=dm,g=g)) 
+                
+                if (tagextra is not None):
+                    extra=tagextra[i]
+                    if ('rgb_mean' in extra):
+                        #np.array2string(extra['rgb_mean'].round(1), separator=', ')
+                        outfile.write(',"rgb_mean":[{rgb_mean[0]},{rgb_mean[1]},{rgb_mean[2]}]'.format(rgb_mean=extra['rgb_mean'].round(1) )) 
+                    if ('tag_img' in extra):
+                        encodedImg=encodeHex(extra['tag_img'])
+                        outfile.write(',"tag_img":"{encodedImg}"'.format(encodedImg=encodedImg)) 
+                        
+                outfile.write('}')
             
             outfile.write('\n  ]}}\n'.format())
         self.beginning = False
@@ -187,6 +243,59 @@ def do_detect(det, orig):
     #print("do_detect: DONE",file=sys.stderr,flush=True)
     return detections
 
+def extract_tag_image(p, rgb, rotate=True, S=None, n=9, pixsize=None):
+
+    if (rotate):
+        if (S is None and pixsize is not None):
+            S = n*pixsize
+            s = pixsize
+        elif (S is None):
+            pixsize = 10
+            S = n*pixsize
+            s = pixsize
+            
+        pts_src = np.array(p)
+        #pts_dst = np.array([[0,0],[S,0],[S,S],[0,S]])
+        pts_dst = np.array([[s,s],[S-s,s],[S-s,S-s],[s,S-s]])
+        size = (S,S)
+    else:
+        if (S is None):
+            S = 90
+        R = S/2
+        C = np.array(p).mean(0)
+        pts_src = C + np.array([[-1,-1],[1,-1],[1,1],[-1,1]])*R
+        pts_dst = np.array([[0,0],[S,0],[S,S],[0,S]])
+        size = (S,S)
+    
+    h, status = cv2.findHomography(pts_src, pts_dst)
+    tag_img = cv2.warpPerspective(rgb, h, size)
+    
+    return tag_img.astype(np.uint8)
+
+
+def do_extract_extras(detections, orig, flags={}, n=9, pixsize=3):
+    #print("do_detect: cvtColor",file=sys.stderr,flush=True)
+    if len(orig.shape) == 3:
+        rgb = cv2.cvtColor(orig, cv2.COLOR_BGR2RGB) # Assume input is BGR
+    else:
+        raise ValueError("`orig` image not a color image.")
+
+    # TODO TODO
+
+    extras = [None] * len(detections)
+    for i, detection in enumerate(detections):
+        extra = OrderedDict()
+        p = detection.corners.tolist()
+        tag_img = extract_tag_image(p, rgb, rotate=True, n=n, pixsize=pixsize)
+        if (flags.get('tag_img')):
+            extra['tag_img']=tag_img
+        if (flags.get('rgb_mean')):
+            rgb_mean = tag_img.mean((0,1))
+            extra['rgb_mean']=rgb_mean
+        extras[i] = extra
+
+    return extras
+
 def print_detections(detections, show_details=False):
     num_detections = len(detections)
     print('Detected {} tags.\n'.format(num_detections))
@@ -198,7 +307,7 @@ def print_detections(detections, show_details=False):
             print(detection.tostring(indent=2))
             print()    
 
-def plot_detections(detections, ax, orig):
+def plot_detections(detections, ax, orig, labels=None):
     """Plots apriltag detections on matplotlib axis"""
 
     plt.sca(ax)
@@ -211,13 +320,19 @@ def plot_detections(detections, ax, orig):
     plt.imshow(bgimg)
     #plt.draw()
     
-    for D in detections:
+    for i,D in enumerate(detections):
         #print(repr(D))
         c=D.corners
+        
+        if (labels is None):
+            label = str(D.tag_id)
+        else:
+            label = labels[i]
+        
         #print(c[:,1])
         pp,=plt.plot(c[:,0],c[:,1],'-')
         plt.plot(c[:,0],c[:,1],'o',markeredgecolor=pp.get_color(), markerfacecolor="None")
-        plt.text(np.mean(c[:,0]),np.min(c[:,1])-5,str(D.tag_id),fontsize=12,horizontalalignment='center', verticalalignment='bottom', color=pp.get_color())
+        plt.text(np.mean(c[:,0]),np.min(c[:,1])-5,label,fontsize=12,horizontalalignment='center', verticalalignment='bottom', color=pp.get_color())
         
         if (D.tag_id>=0):
             H = D.homography;
@@ -390,6 +505,19 @@ def main():
                             default=0.7, type=float,
                             help='Tags smaller than that are discarded '+ show_default)
 
+    parser.add_argument('-rgb_mean', dest='rgb_mean', default=False, 
+                        action='store_true',
+                        help='Extract extra info rgb_mean '+ show_default)
+    parser.add_argument('-tag_img', dest='tag_img', default=False, 
+                        action='store_true',
+                        help='Extract extra info tag image '+ show_default)
+    parser.add_argument('-tag_os', dest='tag_oversampling', 
+                        default=1, type=int,
+                        help='Oversampling factor to extract tag image or compute rgb_mean '+ show_default)         
+    parser.add_argument('-tag_d', dest='tag_d', 
+                        default=5, type=int,
+                        help='Size of tag (tag25h5 -> d=5) '+ show_default)         
+
     options = parser.parse_args()
     
     if (options.f1<options.f0):
@@ -464,8 +592,6 @@ def main():
         
         fps=options.fps
         
-        import gc
-        
         vidcap.set(cv2.CAP_PROP_POS_MSEC,0)    
         status,orig = vidcap.read();
         # Caution: orig in BGR format by default
@@ -479,6 +605,7 @@ def main():
         if (options.multiframefile):
             filenameJSON="tagjson/tags_{:05d}-{:05d}.json".format(options.f0,options.f1)
             singlejson=Multiframejson(filenameJSON)
+            singlejson.set_config(options)
             singlejson.open()
         
         for f in range(options.f0,options.f1+1):
@@ -494,7 +621,9 @@ def main():
             tstart = timer()
 
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
-            status,orig = vidcap.read();
+            # Pass orig as parameter: avoid new allocation, gets 10% faster
+            # Need to have been preallocated before
+            status,_ = vidcap.read(orig); # Caution: BGR format !
             
             # Caution: orig in BGR format by default
             if (orig is None):
@@ -506,13 +635,28 @@ def main():
             
             #print('dodetect',flush=True,file=sys.stderr)
             detections = do_detect(det, orig)
+            
             enddetect = timer()
             #print('dodetect DONE',flush=True,file=sys.stderr)
             #printfps(enddetect-endread, 'detect')
+            
+            extractextra = options.rgb_mean or options.tag_img
+            if (extractextra):
+                tag_family_d=options.tag_d  # d=code pixels, d+2=code+inborder, d+4=code+outborder
+                tag_oversampling=options.tag_oversampling
+                flags = {'tag_img': options.tag_img, 'rgb_mean': options.rgb_mean}
+                tagextra = do_extract_extras(detections, orig, 
+                                             flags=flags,
+                                             n=tag_family_d+4, pixsize=tag_oversampling)
+            else:
+                tagextra = None
+            
+            endextra = timer()
+
 
             if (options.multiframefile):
                 print("  Appending JSON to {}".format(singlejson.tmpfile))
-                singlejson.append(detections, f)
+                singlejson.append(detections, f, tagextra)
             else:        
                 print("  Saving JSON to {}".format(filenameJSON))
                 savejson(detections, filenameJSON)
@@ -540,9 +684,9 @@ def main():
             if (False):
               print('  frame {:5}'.format(f))
             else:
-              print('  TIME frame {:5}, {:3} tags,  time(s), {:5.3f} read, {:5.3f} detect, {:5.3f} save,  {:5.3f} total, {:4.1f} fps'.format(
+              print('  TIME frame {:5}, {:3} tags,  time(s), {:5.1f} read, {:5.1f} detect, {:5.1f} extra, {:5.1f} save,  {:5.1f} total, {:4.1f} fps'.format(
                   f, len(detections), 
-                  endread-tstart, enddetect-endread, endsave-enddetect, 
+                  endread-tstart, enddetect-endread, endextra-enddetect, endsave-endextra, 
                   endsave-tstart, 1.0/(endsave-tstart)))
               if (use_resource):
                 maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
