@@ -621,12 +621,12 @@ def main():
             tstart = timer()
 
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
-            # Pass orig as parameter: avoid new allocation, gets 10% faster
-            # Need to have been preallocated before
-            status,_ = vidcap.read(orig); # Caution: BGR format !
+
+            #status,_ = vidcap.read(orig); # Source of segfault?
+            status,orig = vidcap.read(); # Caution: BGR format !
             
             # Caution: orig in BGR format by default
-            if (not status):
+            if (orig is None):
                 print('Warning: could not read frame {}'.format(f))
                 print('Aborting...')
                 break
