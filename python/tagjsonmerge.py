@@ -47,7 +47,12 @@ def main():
     
     outname=options.output.format(f0=options.f0,f1=options.f1)
     
-    print('Input JSON pattern: {}'.format(options.tags))
+    if (options.multiframestep==0):
+        print('Single frame input files')
+        print('Input JSON pattern: tags={}'.format(options.tags))
+    else:
+        print('Multi frame input files')
+        print('Input JSON pattern: mtags={}'.format(options.mtags))
     print('Output:             {}'.format(outname))
         
     with open(outname, 'w') as outfile:
