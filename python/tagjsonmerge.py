@@ -90,8 +90,8 @@ def main():
             
             mergesources = []
             for fb in range(options.f0,options.f1+1,options.multiframestep):
-                filenameJSON=options.mtags.format(fb,
-                                                  fb+options.multiframestep-1)
+                ff1 = min(fb+options.multiframestep-1, options.f1)
+                filenameJSON=options.mtags.format(fb, ff1)
                 mergesources.append(filenameJSON)
                 
             print('Sources for the merge:')
