@@ -626,7 +626,7 @@ def main():
             status,_ = vidcap.read(orig); # Caution: BGR format !
             
             # Caution: orig in BGR format by default
-            if (orig is None):
+            if (not status):
                 print('Warning: could not read frame {}'.format(f))
                 print('Aborting...')
                 break
