@@ -107,27 +107,33 @@ def main():
                 
                 info = fileobj['info']
              
-                if ('log' not in info):
-                    info['log']=[]
-                info['log'].append({"description":"Merged tag files",
-                                    "config":vars(options),
-                                    "mergesources":mergesources})
-             
-                outfile.write('"info":')
-                json.dump(info, outfile, indent=2, sort_keys=False)
-                outfile.write('\n')
+            if ('log' not in info):
+                info['log']=[]
+            info['log'].append({"description":"Merged tag files",
+                                "config":vars(options),
+                                "mergesources":mergesources})
+         
+            outfile.write('"info":')
+            json.dump(info, outfile, indent=2, sort_keys=False)
+            outfile.write('\n')
+            
+            outfile.write(',\n"data":{')
                 
-                outfile.write(',\n"data":{')
+            isFirstItem=True
             
             for filenameJSON in mergesources:
                 
                 try:
                     with open(filenameJSON, 'r') as infile:
+                        print("Merging {}...".format(filenameJSON))
+                        
                         fileobj = json.load(infile, object_pairs_hook=OrderedDict)
                         
                         data = fileobj['data']
                         
-                        isFirstItem=True
+                        counts = {}
+                        fcounts = {}
+                        count = 0
                         
                         for frame in data.keys():
                             framedata = data[frame]
@@ -150,8 +156,15 @@ def main():
                             if (len(frametags)>0):
                                 outfile.write('\n    ' + ',\n    '.join(tags))
                             outfile.write('\n  ]}') # end of tags, end of frame
+    
+                            for item in frametags:
+                                counts[item]=counts.get(item,0)+1
+                            fcounts[frame]=N
+                            count+=N
 
-                            print('Added {} tags for frame {}: {}'.format(N,frame,[str(item['id']) for item in frametags]))
+                        print('  Added {} tags:'.format(count))
+                        print('  By frame: '+str(fcounts))
+                        print('  By id: '+str(counts))
                 except IOError as e:
                     print('Could not open {}, ignoring.'.format(filenameJSON))
             
