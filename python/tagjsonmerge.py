@@ -3,7 +3,7 @@
 #import apriltagdetect as atd
 import json
 from collections import OrderedDict
-
+import os
 
 def main():
 
@@ -88,6 +88,11 @@ def main():
                 filenameJSON=options.mtags.format(fb,
                                                   fb+options.multiframestep-1)
                 mergesources.append(filenameJSON)
+                
+            print('Sources for the merge:')
+            for i,filenameJSON in enumerate(mergesources):
+                exist = os.path.isfile(filenameJSON) 
+                print("{:03} {} {}".format(i,filenameJSON, "exist="+str(int(exist)) ))
             
             # Copy meta info from first file
             fb = options.f0
