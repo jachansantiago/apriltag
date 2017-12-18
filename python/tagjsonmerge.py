@@ -157,8 +157,9 @@ def main():
                                 outfile.write('\n    ' + ',\n    '.join(tags))
                             outfile.write('\n  ]}') # end of tags, end of frame
     
+                            id = item['id']
                             for item in frametags:
-                                counts[item]=counts.get(item,0)+1
+                                counts[id]=counts.get(id,0)+1
                             fcounts[frame]=N
                             count+=N
 
