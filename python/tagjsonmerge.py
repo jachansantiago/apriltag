@@ -101,9 +101,13 @@ def main():
                 fileobj = json.load(infile, object_pairs_hook=OrderedDict)
                 
                 info = fileobj['info']
-                
-                info['mergesources'] = mergesources
-                
+             
+                if ('log' not in info):
+                    info['log']=[]
+                info['log'].append({"description":"Merged tag files",
+                                    "config":vars(options),
+                                    "mergesources":mergesources})
+             
                 outfile.write('"info":')
                 json.dump(info, outfile, indent=2, sort_keys=False)
                 outfile.write('\n')
