@@ -8,7 +8,7 @@ Author: Rémi Mégret, 2017
 use_pympler = False
 if (use_pympler):
     from pympler import muppy,summary,tracker
-use_resource = True
+use_resource = False
 if (use_resource):
   import resource
 
@@ -36,9 +36,9 @@ have_cv2 = True
 
 import argparse
 
-def init_detection(config='tag36h10'):
-
-    presets = {
+def presets(config='tag25h5inv'):
+    
+    list = {
         'tag25h5inv': argparse.Namespace(
             border=1, families='[{}]'.format('tag25h5'), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=True),
         'tag36h10': argparse.Namespace(
@@ -47,7 +47,12 @@ def init_detection(config='tag36h10'):
             border=2, families='[{}]'.format('tagbeetag'), nthreads=4, quad_contours=True, quad_decimate=1.0, quad_sigma=0.0, refine_decode=True, refine_edges=False, refine_pose=True, debug=-1, inverse=True)
     }
     
-    options = presets[config]
+    return list[config]
+    
+
+def init_detection(config='tag36h10'):
+    
+    options = presets(config)
         
     print("init_detection({})",config)
     print("Options=",options)
@@ -63,6 +68,12 @@ def init_detection(config='tag36h10'):
     
 import json    
 from collections import OrderedDict
+
+# Diverse formats used to manipulate tag detections
+# apriltag.Detection (native apriltag format)
+# python dict (same as Detection, with potential additional fields)
+# json dict (same as python dict, but simplified: no homography, image converted to b64)
+# json string (serialized json dict)
 
 def detectionsToObj(detections):
     """Detection list to Python object hierarchy"""
@@ -118,6 +129,30 @@ def savejson(detections, filename):
 def encodeHex(img):
     H=binascii.hexlify(bytearray(img.astype(np.uint8)))
     return H.decode()
+
+from collections import OrderedDict
+import base64
+
+def uint8_to_b64(A):
+    return base64.b64encode(A.astype(np.uint8)).decode()
+def uint8_from_b64(data):
+    return np.frombuffer(base64.b64decode(data),dtype=np.uint8)
+
+def img_to_b64(img):
+    tagimg=OrderedDict()
+    tagimg['type']='array-uint8-b64'
+    tagimg['shape']=img.shape
+    #tagimg['data']=binascii.hexlify(img.astype(np.uint8)).decode()
+    tagimg['data']=uint8_to_b64(img)
+    #tagimg['data']=img.tolist()
+    return tagimg
+
+def b64_to_img(obj):
+    if (obj['type']=='array-uint8-b64'):
+        img=uint8_from_b64(obj['data']).reshape(obj['shape'])
+    else:
+        raise "Unknown type"
+    return img
         
 class Multiframejson: 
     def __init__(self, filename):
@@ -189,7 +224,6 @@ class Multiframejson:
                 #print(item)
                 
                 dm=item['decision_margin']
-            
                 corners="[[{:.2f},{:.2f}],[{:.2f},{:.2f}],[{:.2f},{:.2f}],[{:.2f},{:.2f}]]".format(
                           p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])
             
@@ -206,8 +240,8 @@ class Multiframejson:
                         #np.array2string(extra['rgb_mean'].round(1), separator=', ')
                         outfile.write(',"rgb_mean":[{rgb_mean[0]},{rgb_mean[1]},{rgb_mean[2]}]'.format(rgb_mean=extra['rgb_mean'].round(1) )) 
                     if ('tag_img' in extra):
-                        encodedImg=encodeHex(extra['tag_img'])
-                        outfile.write(',"tag_img":"{encodedImg}"'.format(encodedImg=encodedImg)) 
+                        encodedImg=json.dumps(img_to_b64(extra['tag_img']))
+                        outfile.write(',"tag_img":{encodedImg}'.format(encodedImg=encodedImg)) 
                         
                 outfile.write('}')
             
@@ -244,7 +278,14 @@ def do_detect(det, orig):
     return detections
 
 def extract_tag_image(p, rgb, rotate=True, S=None, n=9, pixsize=None):
-
+    '''Extract tag image from color image `rgb` for one tag defined 
+    by its 4 corners `p = [[x1,y1],...[x4,y4]]`
+    If `rotate` is True, extract precisely the tag using an homography,
+    such that the output image is aligned with the barcode pixels,
+    e.g. for a tag25h5 tag, `n`=5+4 (5 pixels of code, 4 pixels of contours)
+    and `pixsize` defines the oversampling factor
+    If `rotate` is False, extract a square window centered on the tag of size `S` pixels
+    '''
     if (rotate):
         if (S is None and pixsize is not None):
             S = n*pixsize
@@ -308,7 +349,10 @@ def print_detections(detections, show_details=False):
             print()    
 
 def plot_detections(detections, ax, orig, labels=None):
-    """Plots apriltag detections on matplotlib axis"""
+    """Plots apriltag detections on matplotlib axis
+    detection field accept apriltag.Detection type, or 
+    python dict with following fields: `id`, `p`
+    """
 
     plt.sca(ax)
     plt.cla()
@@ -320,12 +364,20 @@ def plot_detections(detections, ax, orig, labels=None):
     plt.imshow(bgimg)
     #plt.draw()
     
-    for i,D in enumerate(detections):
+    if (len(detections)==0): return;
+    
+    if (type(detections[0]) is apriltag.Detection):
+        tags = detectionsToObj(detections)
+    else:
+        tags = detections
+    
+    for i,tag in enumerate(tags):
         #print(repr(D))
-        c=D.corners
+        c=np.array(tag['p'])
         
+        id = tag['id']
         if (labels is None):
-            label = str(D.tag_id)
+            label = str(id)
         else:
             label = labels[i]
         
@@ -334,12 +386,6 @@ def plot_detections(detections, ax, orig, labels=None):
         plt.plot(c[:,0],c[:,1],'o',markeredgecolor=pp.get_color(), markerfacecolor="None")
         plt.text(np.mean(c[:,0]),np.min(c[:,1])-5,label,fontsize=12,horizontalalignment='center', verticalalignment='bottom', color=pp.get_color())
         
-        if (D.tag_id>=0):
-            H = D.homography;
-            
-            x=0; y=0;
-            
-            #sv.libc.homography_project(H, 0, 0, x, y);
     plt.autoscale(enable=True, tight=True)
     plt.draw()
     
@@ -490,6 +536,9 @@ def main():
     parser.add_argument('-tagout', dest='tagout', default=False, 
                         action='store_true',
                         help='Save image with detected tags overlay '+ show_default)
+    parser.add_argument('-tagplot', dest='tagplot', default=False, 
+                        action='store_true',
+                        help='Plot tags overlay using matplotlib '+ show_default)
     parser.add_argument('-m', dest='multiframefile', default=False, 
                         action='store_true',
                         help='Save multiple frames into single JSON file '+ show_default)
@@ -703,6 +752,9 @@ def main():
         print('Processing image(s) {}'.format(options.filenames))
         for filename in options.filenames:
 
+            filenameJSON="{filename}-tag.json".format(filename=filename)
+            filename_tagout="{filename}-out.jpg".format(filename=filename)
+            
             if have_cv2:
                 orig = cv2.imread(filename)
             else:
@@ -710,15 +762,44 @@ def main():
                 orig = numpy.array(pil_image)
                 #gray = numpy.array(pil_image.convert('L'))
                 
+            if (orig is None):
+                print('Warning: could not read frame {}'.format(f))
+                print('Aborting...')
+                break
+                
             detections = do_detect(det, orig)
             
-            plot_detections(detections, gax[0], orig)
+            print("  Detected {} tags".format(len(detections)))
             
-            tagimg = orig.copy()
-            draw_detections(tagimg, detections, draw_sampling=0)            
-            #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
-            cv2.imwrite(filename,tagimg)
+            extractextra = options.rgb_mean or options.tag_img
+            if (extractextra):
+                tag_family_d=options.tag_d
+                tag_oversampling=options.tag_oversampling
+                flags = {'tag_img': options.tag_img, 'rgb_mean': options.rgb_mean}
+                tagextra = do_extract_extras(detections, orig, 
+                                             flags=flags,
+                                             n=tag_family_d+4, pixsize=tag_oversampling)
+#                print(tagextra)
+            else:
+                tagextra = None
             
+            if (options.tagplot):
+                ax=plt.gca()
+                plot_detections(detections, ax, orig)
+            
+            if (options.tagout):
+                print("  Saving tagimg to {}".format(filename_tagout))
+                tagimg = orig.copy()
+                draw_detections(tagimg, detections, draw_sampling=0)            
+                #tagimg = cv2.cvtColor(tagimg, cv2.COLOR_RGB2BGR);
+                cv2.imwrite(filename_tagout,tagimg)
+                if (options.tag_img):
+                    for k,t in enumerate(tagextra):
+                        filename_tagimg = "{filename}-tagimg-{k}-{id}.png".format(filename=filename,k=k,id=detections[k].tag_id)
+                        cv2.imwrite(filename_tagimg,t['tag_img'] )
+            
+            print("  Saving JSON to {}".format(filenameJSON))
+            savejson(detections, filenameJSON)
             #plt.show(block=False)
 
 if __name__ == '__main__':
