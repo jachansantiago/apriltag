@@ -1014,7 +1014,7 @@ static void quad_decode_task(void *_u)
                 pthread_mutex_unlock(&td->mutex);
                 
                 //printf("DEBUG: debug = %d\n",td->debug);
-            } else if (td->debug & (1<<8)) {
+            } else if (td->debug & DEBUG_KEEP_ALL ) {
                 // HACK: keep all quads
                 
                 printf("DEBUG: debug bit 8 ON, keep all quads\n");
@@ -1078,7 +1078,7 @@ void apriltag_detection_destroy(apriltag_detection_t *det)
 
 zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
 {
-    if (td->debug) {
+    if (td->debug & DEBUG_LOG) {
         printf("apriltag_detector_detect:\n");
         printf("  nthreads = %d\n",td->nthreads);
         printf("  quad_decimate = %f\n",td->quad_decimate);
@@ -1161,7 +1161,7 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
 
     timeprofile_stamp(td->tp, "blur/sharp");
 
-    if (td->debug)
+    if (td->debug & DEBUG_IMAGE)
         image_u8_write_pnm(quad_im, "debug_preprocess.pnm");
 
     zarray_t* quads = 0;
@@ -1196,7 +1196,7 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
 
     timeprofile_stamp(td->tp, "quads");
 
-    if (td->debug) {
+    if (td->debug & DEBUG_IMAGE) {
         image_u8_t *im_quads = image_u8_copy(im_orig);
         image_u8_darken(im_quads);
         image_u8_darken(im_quads);
@@ -1223,10 +1223,10 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
     ////////////////////////////////////////////////////////////////
     // Step 2. Decode tags from each quad.
     if (1) {
-        image_u8_t *im_gray_samples = td->debug ? image_u8_copy(im_orig) : NULL;
+        image_u8_t *im_gray_samples = (td->debug & DEBUG_IMAGE) ? image_u8_copy(im_orig) : NULL;
 
         // im_decision debugging output is slow.
-        image_u8_t *im_decision = td->debug ? image_u8_copy(im_orig) : NULL;
+        image_u8_t *im_decision = (td->debug & DEBUG_IMAGE) ? image_u8_copy(im_orig) : NULL;
 
         int chunksize = 1 + zarray_size(quads) / (APRILTAG_TASKS_PER_THREAD_TARGET * td->nthreads);
 
@@ -1261,7 +1261,7 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
         }
     }
 
-    if (td->debug) {
+    if (td->debug & DEBUG_IMAGE) {
         image_u8_t *im_quads = image_u8_copy(im_orig);
         image_u8_darken(im_quads);
         image_u8_darken(im_quads);
@@ -1346,7 +1346,7 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
 
     ////////////////////////////////////////////////////////////////
     // Produce final debug output
-    if (td->debug) {
+    if (td->debug & DEBUG_IMAGE) {
 
         image_u8_t *darker = image_u8_copy(im_orig);
         image_u8_darken(darker);
@@ -1403,7 +1403,7 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
     }
 
     // deallocate
-    if (td->debug) {
+    if (td->debug & DEBUG_IMAGE) {
         FILE *f = fopen("debug_quads.ps", "w");
         fprintf(f, "%%!PS\n\n");
 
