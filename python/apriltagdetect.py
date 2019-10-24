@@ -167,10 +167,21 @@ class Multiframejson:
     def open(self):
         with open(self.tmpfile, 'w') as outfile:
             outfile.write('{\n')
+            
+            v = self.config.multiframefile_version
+            if v==1 or v==2:
+                T = 'tags-multiframe'
+                df = 'root.data[frame].tags[id_in_frame]'
+            elif v==3:
+                T = 'tags-v3'
+                df = 'root.data[frame][id_in_frame]'
+            else:
+                raise ValueError("invalid multiframefile_version {}".format(v))
+            
             # Header
             info = OrderedDict({
-                            'type':'tags-multiframe',
-                            'data-format':'root.data[frame].tags[id_in_frame]',
+                            'type':T,
+                            'data-format':df,
                             })
             if (self.config is not None):
                 info['config']=vars(self.config) # convert Namespace to OrderedDict
@@ -204,7 +215,14 @@ class Multiframejson:
         with open(self.tmpfile, 'a') as outfile:
             if (not self.beginning):
                 outfile.write('  ,\n')
-            outfile.write('  "{f}":{{"tags":['.format(f=frame))
+                
+            v = self.config.multiframefile_version
+            if v==1 or v==2:
+                outfile.write('  "{f}":{{"tags":['.format(f=frame))
+            elif v==3:
+                outfile.write('  "{f}":['.format(f=frame))
+            else:
+                raise ValueError("invalid multiframefile_version {}".format(v))
             
             #json.dump(data, outfile, indent=2, sort_keys=False)
             flag=False
@@ -228,9 +246,9 @@ class Multiframejson:
                           p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])
             
                 outfile.write('      {')
-                outfile.write('"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming}'
+                outfile.write('"frame":{frame},"id":{id},"c":[{cx:.1f},{cy:.1f}],"hamming":{hamming}'
                               ',"p":{corners},"goodness":{g:.2f},"dm":{dm:.2f}'.format(
-                                      id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],
+                                      frame=frame,id=item['id'],cx=c[0],cy=c[1],hamming=item['hamming'],
                                       corners=corners,
                                       dm=dm,g=g)) 
                 
@@ -245,7 +263,13 @@ class Multiframejson:
                         
                 outfile.write('}')
             
-            outfile.write('\n  ]}}\n'.format())
+            if v==1 or v==2:
+                outfile.write('\n  ]}}\n'.format())
+            elif v==3:
+                outfile.write('\n  ]\n'.format())
+            else:
+                raise ValueError("invalid multiframefile_version {}".format(v))
+
         self.beginning = False
         
 def loadjson(filename):
@@ -542,6 +566,8 @@ def main():
     parser.add_argument('-m', dest='multiframefile', default=False, 
                         action='store_true',
                         help='Save multiple frames into single JSON file '+ show_default)
+    parser.add_argument('-mv', dest='multiframefile_version', default=0, type=int,
+                        help='Single JSON file version'+ show_default)
           
     if (True):     
         parser.add_argument('-max_side_length', dest='max_side_length', 
@@ -568,6 +594,11 @@ def main():
                         help='Size of tag (tag25h5 -> d=5) '+ show_default)         
 
     options = parser.parse_args()
+    
+    if (not options.multiframefile and options.multiframefile_version>0):
+        options.multiframefile = True
+    if (options.multiframefile and options.multiframefile_version==0):
+        options.multiframefile_version = 2
     
     if (options.f1<options.f0):
         options.f1=options.f0
@@ -656,6 +687,8 @@ def main():
             singlejson=Multiframejson(filenameJSON)
             singlejson.set_config(options)
             singlejson.open()
+            
+            print("All writes will be to tmp JSON file {}...".format(singlejson.tmpfile))
         
         for f in range(options.f0,options.f1+1):
         
@@ -704,10 +737,11 @@ def main():
 
 
             if (options.multiframefile):
-                print("  Appending JSON to {}".format(singlejson.tmpfile))
+                if (options.debug & 1): # DEBUG_LOG
+                    print("  Appending to JSON file {}...".format(singlejson.tmpfile))
                 singlejson.append(detections, f, tagextra)
-            else:        
-                print("  Saving JSON to {}".format(filenameJSON))
+            else:
+                print("  Saving JSON to {}...".format(filenameJSON))
                 savejson(detections, filenameJSON)
 
             #plot_detections(detections, gax[0], orig)
@@ -733,10 +767,10 @@ def main():
             if (False):
               print('  frame {:5}'.format(f))
             else:
-              print('  TIME frame {:5}, {:3} tags,  time(s), {:5.1f} read, {:5.1f} detect, {:5.1f} extra, {:5.1f} save,  {:5.1f} total, {:4.1f} fps'.format(
-                  f, len(detections), 
+              print('  DONE frame {:5}, {:3} tags, {:4.1f} fps, times: {:5.1f} read, {:5.1f} detect, {:5.1f} extra, {:5.1f} save,  {:5.1f} total'.format(
+                  f, len(detections), 1.0/(endsave-tstart),
                   endread-tstart, enddetect-endread, endextra-enddetect, endsave-endextra, 
-                  endsave-tstart, 1.0/(endsave-tstart)))
+                  endsave-tstart))
               if (use_resource):
                 maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                 print('  MEM  frame {:5}, {:10d} bytes'.format(f, maxrss))
@@ -747,6 +781,7 @@ def main():
         if (options.multiframefile):
             print("  Closing JSON {}".format(singlejson.tmpfile))
             singlejson.close()
+            print("  Renamed to {}".format(singlejson.filename))
             
     else: # Input is an image (or several)
         print('Processing image(s) {}'.format(options.filenames))
