@@ -475,6 +475,11 @@ double quad_goodness(apriltag_family_t *family, image_u8_t *im, struct quad *qua
     matd_t *Hinv = quad->Hinv;
 //    matd_t *H = quad->H;
 
+    if (Hinv == NULL) {
+        printf('Warning in apriltag.c:quad_goodness, Hinv==NULL');
+        return 0.0;
+    }
+
     // iterate over all the pixels in the tag. (Iterating in pixel space)
     for (int y = ymin; y <= ymax; y++) {
 
