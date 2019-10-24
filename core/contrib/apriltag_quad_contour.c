@@ -641,7 +641,7 @@ zarray_t* quads_from_contours(const apriltag_detector_t* td,
 
   image_u32_t* debug_vis = NULL;
   
-  if (td->debug) {
+  if (td->debug & DEBUG_IMAGE) {
     debug_vis = im8_to_im32_dim(im, 0.5);
   }
 
@@ -696,7 +696,7 @@ zarray_t* quads_from_contours(const apriltag_detector_t* td,
       zarray_add(quads, wquads+c);
     }
 
-    if (td->debug && results[c] >= 0) {
+    if ( (td->debug & DEBUG_IMAGE) && results[c] >= 0) {
       uint32_t colors[8] = {
         MAKE_RGB(255,   0, 255), // success = mid purple
         MAKE_RGB(127,   0,   0), // min. area = dark red
@@ -712,7 +712,7 @@ zarray_t* quads_from_contours(const apriltag_detector_t* td,
     
   }
 
-  if (td->debug) {
+  if (td->debug & DEBUG_IMAGE) {
     image_u32_write_pnm(debug_vis, "debug_quad_contours.pnm");
   }
 
@@ -737,7 +737,7 @@ zarray_t* apriltag_quad_contour(apriltag_detector_t* td,
                                         td->qp.qcp.threshold_value,
                                         td->wp);
 
-  if (td->debug) {
+  if (td->debug & DEBUG_IMAGE) {
     image_u8_write_pnm(thresh, "debug_threshold.pnm");
   }
 
@@ -747,7 +747,7 @@ zarray_t* apriltag_quad_contour(apriltag_detector_t* td,
   zarray_t* contours = contour_detect(thresh); 
   timeprofile_stamp(td->tp, "contour");
 
-  if (td->debug) {
+  if (td->debug & DEBUG_IMAGE) {
     image_u32_t* display = im8_to_im32_dim(im, 0.5);
     for (int c=0; c<zarray_size(contours); ++c) {
       const contour_info_t* ci;

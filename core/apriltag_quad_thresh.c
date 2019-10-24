@@ -1543,7 +1543,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
             }
         }
 
-        if (td->debug) {
+        if (td->debug & DEBUG_IMAGE) {
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
                     threshim->buf[y*s + x] *= 255;
@@ -1692,7 +1692,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
     }
 
     // make segmentation image.
-    if (td->debug) {
+    if (td->debug & DEBUG_IMAGE) {
         image_u8_t *d = image_u8_create(w, h);
         assert(d->stride == s);
 
@@ -1769,7 +1769,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
 
     timeprofile_stamp(td->tp, "fit quads to clusters");
 
-    if (td->debug) {
+    if (td->debug & DEBUG_IMAGE) {
         FILE *f = fopen("debug_lines.ps", "w");
         fprintf(f, "%%!PS\n\n");
 
@@ -1810,7 +1810,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
 //        printf("  %d %d %d %d\n", indices[0], indices[1], indices[2], indices[3]);
 
 /*
-        if (td->debug) {
+        if (td->debug & DEBUG_IMAGE) {
             for (int i = 0; i < 4; i++) {
             int i0 = indices[i];
                 int i1 = indices[(i+1)&3];
