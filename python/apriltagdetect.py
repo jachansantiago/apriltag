@@ -238,6 +238,8 @@ class Multiframejson:
                 c[1]=float(c[1])
                 p=item['p']
                 g=item['goodness']
+                if (np.isnan(g)):
+                    g = 0.0
                 
                 #print(item)
                 
