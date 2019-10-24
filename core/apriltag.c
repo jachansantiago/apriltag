@@ -29,6 +29,8 @@ of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of the FreeBSD Project.
  */
 
+#define _XOPEN_SOURCE 500
+
 #include "apriltag.h"
 #include "apriltag_quad_contour.h"
 
