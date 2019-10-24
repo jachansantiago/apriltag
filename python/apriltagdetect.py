@@ -556,6 +556,9 @@ def main():
                         help='Frame end '+ show_default)
     parser.add_argument('-fps', dest='fps', default=20.0, type=float,
                         help='fps '+ show_default)
+         
+    parser.add_argument('-outdir', dest='outdir', default='.',
+                        help='For video, basedir of output '+ show_default)
                         
     parser.add_argument('-tagout', dest='tagout', default=False, 
                         action='store_true',
@@ -660,12 +663,13 @@ def main():
         cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep frame_rate=".format(options.video_in)
         subprocess.call(cmdline,shell=True)
         
-        #options.f1=int(min(options.f1,nframes))
+
+        outdir = options.outdir
+        tagout = outdir+'/tagout'
+        tagjson = outdir+'/tagjson'
         
-        #win = cv2.namedWindow('tags',cv2.WINDOW_NORMAL)
-        
-        os.makedirs('tagout',exist_ok=True)
-        os.makedirs('tagjson',exist_ok=True)
+        os.makedirs(tagout,exist_ok=True)
+        os.makedirs(tagjson,exist_ok=True)
         
         def printfps(t, name):
             print("Time {:10}   = {:5.3f}s   ({:4.1f} fps)".format(name, t, 1.0/t)) 
@@ -683,7 +687,7 @@ def main():
         print("Image size: {}".format(orig.shape))
         
         if (options.multiframefile):
-            filenameJSON="tagjson/tags_{:05d}-{:05d}.json".format(options.f0,options.f1)
+            filenameJSON=outdir+"/tags_{:05d}-{:05d}.json".format(options.f0,options.f1)
             singlejson=Multiframejson(filenameJSON)
             singlejson.set_config(options)
             singlejson.open()
@@ -695,8 +699,8 @@ def main():
             #vidcap.release()
             #vidcap = cv2.VideoCapture(options.video_in)
         
-            filename="tagout/tagout_{:05d}.png".format(f)
-            filenameJSON="tagjson/tags_{:05d}.json".format(f)
+            filename=tagout+"/tagout_{:05d}.png".format(f)
+            filenameJSON=tagjson+"/tags_{:05d}.json".format(f)
         
             print("Processing frame {}".format(f), flush=True)
         
