@@ -476,7 +476,7 @@ double quad_goodness(apriltag_family_t *family, image_u8_t *im, struct quad *qua
 //    matd_t *H = quad->H;
 
     if (Hinv == NULL) {
-        printf('Warning in apriltag.c:quad_goodness, Hinv==NULL');
+        printf("Warning in apriltag.c:quad_goodness, Hinv==NULL\n");
         return 0.0;
     }
 

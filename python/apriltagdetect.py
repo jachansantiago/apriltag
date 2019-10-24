@@ -573,6 +573,8 @@ def main():
                         help='Save multiple frames into single JSON file '+ show_default)
     parser.add_argument('-mv', dest='multiframefile_version', default=0, type=int,
                         help='Single JSON file version'+ show_default)
+    parser.add_argument('-cvt', dest='cv_nthreads', default=2, type=int,
+                        help='Number of threads for OpenCV '+ show_default)
           
     if (True):     
         parser.add_argument('-max_side_length', dest='max_side_length', 
@@ -600,6 +602,9 @@ def main():
 
     options = parser.parse_args()
     
+    cv2.setNumThreads(options.cv_nthreads)
+    print('OpenCV running with {} threads'.format(cv2.getNumThreads()))
+
     if (not options.multiframefile and options.multiframefile_version>0):
         options.multiframefile = True
     if (options.multiframefile and options.multiframefile_version==0):
@@ -650,20 +655,21 @@ def main():
         
         vidcap.set(cv2.CAP_PROP_POS_FRAMES,nframes-1)
         duration=vidcap.get(cv2.CAP_PROP_POS_MSEC)/1000.0;
-        
-        print("Opened video.\n  nframes={}\n  nframes with cmd line fps={}\n  coder fps={}\n  coder video duration={}s={}min\n  command line fps={}\n  command line duration={}s={}min\n  time at frame {}={}s".format(nframes, nframes*coderfps/options.fps,
-                 coderfps,nframes/coderfps, nframes/coderfps/60,
-                 options.fps,nframes/options.fps, nframes/options.fps/60,
-                 int(nframes), duration))
+       
+        if (False): 
+           print("Opened video.\n  nframes={}\n  nframes with cmd line fps={}\n  coder fps={}\n  coder video duration={}s={}min\n  command line fps={}\n  command line duration={}s={}min\n  time at frame {}={}s".format(nframes, nframes*coderfps/options.fps,
+                    coderfps,nframes/coderfps, nframes/coderfps/60,
+                    options.fps,nframes/options.fps, nframes/options.fps/60,
+                    int(nframes), duration))
                  
-        print('ffprobe infos:')
-        import shlex, subprocess
-        cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep nb_frames=".format(options.video_in)
-        subprocess.call(cmdline,shell=True)
-        cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep duration=".format(options.video_in)
-        subprocess.call(cmdline,shell=True)
-        cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep frame_rate=".format(options.video_in)
-        subprocess.call(cmdline,shell=True)
+           print('ffprobe infos:')
+           import shlex, subprocess
+           cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep nb_frames=".format(options.video_in)
+           subprocess.call(cmdline,shell=True)
+           cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep duration=".format(options.video_in)
+           subprocess.call(cmdline,shell=True)
+           cmdline = "ffprobe '{}' -show_streams -loglevel -8 | grep frame_rate=".format(options.video_in)
+           subprocess.call(cmdline,shell=True)
         
 
         outdir = options.outdir
@@ -700,19 +706,14 @@ def main():
             print("All writes will be to tmp JSON file {}...".format(singlejson.tmpfile))
         
         for f in range(options.f0,options.f1+1):
-        
-            #vidcap.release()
-            #vidcap = cv2.VideoCapture(options.video_in)
-        
             filename=tagout+"/tagout_{:05d}.png".format(f)
             filenameJSON=tagjson+"/tags_{:05d}.json".format(f)
         
             print("Processing frame {}".format(f), flush=True)
         
             tstart = timer()
-
+ 
             vidcap.set(cv2.CAP_PROP_POS_MSEC,1000.0/fps*f)    
-
             #status,_ = vidcap.read(orig); # Source of segfault?
             status,orig = vidcap.read(); # Caution: BGR format !
             
