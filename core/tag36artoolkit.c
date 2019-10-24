@@ -31,6 +31,9 @@ The views and conclusions contained in the software and documentation are those
 of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of the FreeBSD Project.
  */
+ 
+#define _XOPEN_SOURCE 500
+#include <string.h>
 #include <stdlib.h>
 #include "apriltag.h"
 
