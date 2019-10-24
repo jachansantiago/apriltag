@@ -237,7 +237,8 @@ struct apriltag_detector
     pthread_mutex_t mutex;
 };
 
-#define DEBUG_IMAGE 1
+#define DEBUG_LOG 1
+#define DEBUG_IMAGE 2
 #define DEBUG_KEEP_ALL 256
 
 // Represents the detection of a tag. These are returned to the user
