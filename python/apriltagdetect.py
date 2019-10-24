@@ -665,11 +665,14 @@ def main():
         
 
         outdir = options.outdir
-        tagout = outdir+'/tagout'
         tagjson = outdir+'/tagjson'
+        tagout = outdir+'/tagout'
         
-        os.makedirs(tagout,exist_ok=True)
-        os.makedirs(tagjson,exist_ok=True)
+        os.makedirs(outdir,exist_ok=True)
+        if (not options.multiframefile):                
+            os.makedirs(tagjson,exist_ok=True)
+        if (options.tagout):
+            os.makedirs(tagout,exist_ok=True)
         
         def printfps(t, name):
             print("Time {:10}   = {:5.3f}s   ({:4.1f} fps)".format(name, t, 1.0/t)) 
