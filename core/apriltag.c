@@ -1088,6 +1088,11 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
         printf("  refine_pose = %d\n",td->refine_pose);
         printf("  debug = %d\n",td->debug);
         printf("  quad_contours = %d\n",td->quad_contours);
+        
+        if (td->wp != NULL)
+            printf("  workerpool_get_nthreads = %d / nthreads = %d\n",workerpool_get_nthreads(td->wp), td->nthreads);
+        else
+            printf("  no workerpool\n");
     }
 
     if (zarray_size(td->tag_families) == 0) {
@@ -1097,6 +1102,9 @@ zarray_t *apriltag_detector_detect(apriltag_detector_t *td, image_u8_t *im_orig)
     }
 
     if (td->wp == NULL || td->nthreads != workerpool_get_nthreads(td->wp)) {
+        if (td->debug & DEBUG_LOG) {
+            printf("  workerpool_destroy;workerpool_create(%d)\n",td->nthreads);
+        }
         workerpool_destroy(td->wp);
         td->wp = workerpool_create(td->nthreads);
     }
