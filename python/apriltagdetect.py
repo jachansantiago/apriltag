@@ -243,7 +243,9 @@ class Multiframejson:
                 
                 #print(item)
                 
-                dm=item['decision_margin']
+                dm=item['decision_margin']           
+                if (np.isnan(dm)):
+                    dm = 0.0
                 corners="[[{:.2f},{:.2f}],[{:.2f},{:.2f}],[{:.2f},{:.2f}],[{:.2f},{:.2f}]]".format(
                           p[0][0],p[0][1], p[1][0],p[1][1], p[2][0],p[2][1], p[3][0],p[3][1])
             
