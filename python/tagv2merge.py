@@ -2,6 +2,7 @@
 import json
 from collections import OrderedDict
 import os
+import numpy as np
 
 def main():
 
@@ -103,6 +104,9 @@ def main():
             outfile.write('{"tags": [')
             tags=[]
             for tag in frametags:
+                if ('dm' in tag):
+                  if (np.isnan(tag['dm'])):
+                     tag['dm']=0
                 tags.append(json.dumps(tag, indent=None, sort_keys=False))
             if (N>0):
                 outfile.write('\n    ' + ',\n    '.join(tags))

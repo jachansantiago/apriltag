@@ -779,10 +779,10 @@ def main():
             if (False):
               print('  frame {:5}'.format(f))
             else:
-              print('  DONE frame {:5}, {:3} tags, {:4.1f} fps, times: {:5.1f} read, {:5.1f} detect, {:5.1f} extra, {:5.1f} save,  {:5.1f} total'.format(
-                  f, len(detections), 1.0/(endsave-tstart),
-                  endread-tstart, enddetect-endread, endextra-enddetect, endsave-endextra, 
-                  endsave-tstart))
+              print('  DONE frame {:5}, {:3} tags, {:4.1f} fps'.format(f, len(detections), 1.0/(endsave-tstart)))
+              #print('  Times: {:5.1f} read, {:5.1f} detect, {:5.1f} extra, {:5.1f} save,  {:5.1f} total'.format(
+              #    endread-tstart, enddetect-endread, endextra-enddetect, endsave-endextra, 
+              #    endsave-tstart))
               if (use_resource):
                 maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                 print('  MEM  frame {:5}, {:10d} bytes'.format(f, maxrss))
