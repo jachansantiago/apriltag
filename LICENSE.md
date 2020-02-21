@@ -33,7 +33,9 @@ either expressed or implied, of the FreeBSD Project.
 
 ---
 
-All other code is (C) 2015-2018, Matt Zucker
+All other code is 
+(C) 2015-2018, Matt Zucker  (swatbotics commits)
+(C) 2017-2020, Remi Megret, University of Puerto Rico Rio Piedras campus (rmegret commits)
 
 All rights reserved.
 
@@ -57,3 +59,5 @@ BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN 
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
 SUCH DAMAGE.
+
+

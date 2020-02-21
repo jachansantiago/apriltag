@@ -3,7 +3,18 @@ apriltag
 
 Small modifications/additions to  http://april.eecs.umich.edu/media/apriltag/apriltag-2015-03-18.tgz
 
-Added a new quad detector and a few various speedups.
+Swatbotics changes:
+
+- Added a new quad detector and a few various speedups.
+
+BigDBee changes:
+
+- Add families: beetag, tag25h5, tag25h6
+- Add inverse tag detection
+- Adapt for Python3, fix memory leaks and segfault crashes
+- Give access to QTP detection parameters in python code
+- Separate apriltagdetect.py script to extract tags into JSON format from video
+
 
 Dependencies
 ============
