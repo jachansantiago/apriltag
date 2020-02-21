@@ -34,7 +34,9 @@ either expressed or implied, of the FreeBSD Project.
 ---
 
 All other code is 
+
 (C) 2015-2018, Matt Zucker  (swatbotics commits)
+
 (C) 2017-2020, Remi Megret, University of Puerto Rico Rio Piedras campus (rmegret commits)
 
 All rights reserved.
