@@ -1,25 +1,28 @@
 apriltag
 ========
 
-Small modifications/additions to  http://april.eecs.umich.edu/media/apriltag/apriltag-2015-03-18.tgz
+Extension of Apriltag library for use in BigDBee project https://bigdbee.hpcf.upr.edu/ to tag honeybees with tag25h5 tags.
 
-Swatbotics changes:
 
-- Added a new quad detector and a few various speedups.
+Original version: http://april.eecs.umich.edu/media/apriltag/apriltag-2015-03-18.tgz from https://april.eecs.umich.edu/software/apriltag
+
+Swatbotics changes: https://github.com/swatbotics/apriltag
+
+- Added python wrappers and various improvements
 
 BigDBee changes:
 
-- Add families: beetag, tag25h5, tag25h6
+- Add new families: beetag, tag25h5, tag25h6
 - Add inverse tag detection
 - Adapt for Python3, fix memory leaks and segfault crashes
 - Give access to QTP detection parameters in python code
-- Separate apriltagdetect.py script to extract tags into JSON format from video
+- New batch script `apriltagdetect.py` to extract tags from video (in JSON format with extra information such as RGB and rectified tag image)
 
 
 Dependencies
 ============
 
-  - OpenCV (optional)
+  - OpenCV
 
 Building
 ========
@@ -110,6 +113,11 @@ optional arguments:
   -tag_d TAG_D          Size of tag (tag25h5 -> d=5) (default 5)
 ```
 
+Acknowledgements
+================
 
+Original code: Edwin Olson, https://april.eecs.umich.edu/software/apriltag
 
+Python wrapper and improvements: Matt Zucker, https://github.com/swatbotics/apriltag
 
+Extra changes by Remi Megret are within the project "Large-scale multi-parameter analysis of honeybee behavior in their natural habitat" (https://bigdbee.hpcf.upr.edu/). This material is based upon work supported by the National Science Foundation under Grants No. 1707355 and 1633184.
