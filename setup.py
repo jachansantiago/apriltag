@@ -1,4 +1,5 @@
 import setuptools
+from cmake_setuptools import CMakeExtension, CMakeBuildExt
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -12,4 +13,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    ext_modules=[CMakeExtension("make_target")],
+    cmdclass={'build_ext': CMakeBuildExt}
 )
