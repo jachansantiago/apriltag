@@ -13,6 +13,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
-    ext_modules=[CMakeExtension("make_target")],
+    ext_modules=[CMakeExtension("apriltag")],
     cmdclass={'build_ext': CMakeBuildExt}
 )
