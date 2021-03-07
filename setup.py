@@ -82,4 +82,3 @@ setuptools.setup(
     python_requires='>=3.6',
     ext_modules=[CMakeExtension("apriltag")],
     cmdclass={'build_ext': CMakeBuildExt}
-)
