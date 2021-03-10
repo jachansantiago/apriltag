@@ -16,6 +16,10 @@ import collections
 import os
 import re
 import numpy
+from pathlib import Path
+import itertools
+
+searchpath= Path(__file__).parent / "lib"
 
 ######################################################################
 
@@ -306,7 +310,8 @@ add_arguments; or an instance of the DetectorOptions class.'''
         else:
             extension = '.so' # TODO test on windows?
 
-        filename = 'libapriltag'+extension
+        filename = searchpath= Path(__file__).parent / ('lib/libapriltag'+extension)
+        print(filename)
 
 
         # load the C library and store it as a class variable
